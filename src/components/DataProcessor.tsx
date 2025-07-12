@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Play, Volume2, BarChart3, FileText, Upload, AlertCircle, CheckCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 interface DataStructure {
   title: string;
@@ -26,13 +25,18 @@ export default function DataProcessor() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
-  const { toast } = useToast();
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   // Sample data for demonstration
   const sampleData = {
     title: "Quarterly Sales Data",
     values: [120, 190, 300, 500, 200, 300],
     labels: ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"]
+  };
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const validateAndParseData = (input: string): DataStructure | null => {
@@ -75,20 +79,13 @@ export default function DataProcessor() {
       const data = validateAndParseData(jsonInput);
       setParsedData(data);
       
-      toast({
-        title: "Data processed successfully",
-        description: `Processed "${data.title}" with ${data.values.length} data points`,
-      });
+      showNotification('success', `Processed "${data.title}" with ${data.values.length} data points`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process data';
       setError(errorMessage);
       setParsedData(null);
       
-      toast({
-        variant: "destructive",
-        title: "Processing failed",
-        description: errorMessage,
-      });
+      showNotification('error', errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -119,11 +116,7 @@ export default function DataProcessor() {
 
     // Check if browser supports speech synthesis
     if (!('speechSynthesis' in window)) {
-      toast({
-        variant: "destructive",
-        title: "Speech not supported",
-        description: "Your browser doesn't support text-to-speech",
-      });
+      showNotification('error', "Your browser doesn't support text-to-speech");
       return;
     }
 
@@ -134,11 +127,7 @@ export default function DataProcessor() {
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => {
       setIsSpeaking(false);
-      toast({
-        variant: "destructive",
-        title: "Speech error",
-        description: "Failed to speak the summary",
-      });
+      showNotification('error', "Failed to speak the summary");
     };
 
     window.speechSynthesis.speak(utterance);
@@ -175,7 +164,7 @@ export default function DataProcessor() {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="hsl(var(--primary))" />
+              <Bar dataKey="value" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -188,7 +177,7 @@ export default function DataProcessor() {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
         );
@@ -222,20 +211,30 @@ export default function DataProcessor() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Notification */}
+        {notification && (
+          <div className="fixed top-4 right-4 z-50">
+            <Alert variant={notification.type === 'error' ? 'destructive' : 'default'} className="max-w-md">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{notification.message}</AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             JSON Data Processor
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Process JSON data with text summaries, voice output, and interactive visualizations
           </p>
         </div>
 
         {/* Data Input */}
-        <Card className="shadow-glow">
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
@@ -261,11 +260,11 @@ export default function DataProcessor() {
               <Button 
                 onClick={processData} 
                 disabled={isProcessing}
-                className="bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 {isProcessing ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Processing...
                   </>
                 ) : (
@@ -295,7 +294,7 @@ export default function DataProcessor() {
         {parsedData && (
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Text Summary */}
-            <Card>
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -304,8 +303,8 @@ export default function DataProcessor() {
                 <CardDescription>Automated data analysis and insights</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap font-mono">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <pre className="text-sm whitespace-pre-wrap font-mono text-gray-700">
                     {generateTextSummary()}
                   </pre>
                 </div>
@@ -324,7 +323,7 @@ export default function DataProcessor() {
             </Card>
 
             {/* Chart Visualization */}
-            <Card>
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
@@ -356,12 +355,12 @@ export default function DataProcessor() {
 
         {/* Success indicator */}
         {parsedData && (
-          <Card className="border-success">
+          <Card className="border-green-200 bg-green-50/50">
             <CardContent className="flex items-center gap-3 pt-6">
-              <CheckCircle className="h-5 w-5 text-success" />
+              <CheckCircle className="h-5 w-5 text-green-600" />
               <div>
-                <p className="font-medium">Data processed successfully!</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-medium text-green-800">Data processed successfully!</p>
+                <p className="text-sm text-green-600">
                   All three output formats are now available: text summary, voice output, and chart visualization.
                 </p>
               </div>
