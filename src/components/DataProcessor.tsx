@@ -1,187 +1,259 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Play, Volume2, BarChart3, FileText, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
+import { Upload, Play, FileText, BarChart3, PieChart, TrendingUp, Zap, Download, RefreshCw, Copy, Check, AlertCircle, CheckCircle } from 'lucide-react';
 
-interface DataStructure {
-  title: string;
-  values: number[];
-  labels: string[];
-}
-
-interface ChartData {
-  name: string;
-  value: number;
-}
-
-export default function DataProcessor() {
+const JSONDataProcessor = () => {
   const [jsonInput, setJsonInput] = useState('');
-  const [parsedData, setParsedData] = useState<DataStructure | null>(null);
+  const [parsedData, setParsedData] = useState(null);
   const [error, setError] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
-  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [success, setSuccess] = useState('');
+  const [chartType, setChartType] = useState('bar');
+  const [processing, setProcessing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const fileInputRef = useRef(null);
 
-  // Sample data for demonstration
   const sampleData = {
-    title: "Quarterly Sales Data",
-    values: [120, 190, 300, 500, 200, 300],
-    labels: ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"]
+    title: "Monthly Sales Data",
+    values: [120, 190, 300, 500, 200, 300, 450, 600, 800, 700, 900, 1100],
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    categories: ["Electronics", "Clothing", "Books", "Home", "Sports"],
+    categoryValues: [2500, 1800, 900, 1200, 600]
   };
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
+  const addToHistory = (data) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(data);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
   };
 
-  const validateAndParseData = (input: string): DataStructure | null => {
-    try {
-      const data = JSON.parse(input);
-      
-      // Validate structure
-      if (!data.title || typeof data.title !== 'string') {
-        throw new Error('Missing or invalid "title" field (must be a string)');
-      }
-      
-      if (!Array.isArray(data.values) || !data.values.every((v: any) => typeof v === 'number')) {
-        throw new Error('Missing or invalid "values" field (must be an array of numbers)');
-      }
-      
-      if (!Array.isArray(data.labels) || !data.labels.every((l: any) => typeof l === 'string')) {
-        throw new Error('Missing or invalid "labels" field (must be an array of strings)');
-      }
-      
-      if (data.values.length !== data.labels.length) {
-        throw new Error('Values and labels arrays must have the same length');
-      }
-      
-      return data as DataStructure;
-    } catch (err) {
-      throw new Error(`JSON parsing error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      const prevData = history[historyIndex - 1];
+      setParsedData(prevData);
+      setJsonInput(JSON.stringify(prevData, null, 2));
     }
   };
 
-  const processData = async () => {
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      const nextData = history[historyIndex + 1];
+      setParsedData(nextData);
+      setJsonInput(JSON.stringify(nextData, null, 2));
+    }
+  };
+
+  const validateAndParseJSON = useCallback((jsonString) => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return { success: true, data: parsed };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  const processData = () => {
     if (!jsonInput.trim()) {
       setError('Please enter JSON data');
       return;
     }
 
-    setIsProcessing(true);
+    setProcessing(true);
     setError('');
+    setSuccess('');
 
-    try {
-      const data = validateAndParseData(jsonInput);
-      setParsedData(data);
+    setTimeout(() => {
+      const result = validateAndParseJSON(jsonInput);
       
-      showNotification('success', `Processed "${data.title}" with ${data.values.length} data points`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to process data';
-      setError(errorMessage);
-      setParsedData(null);
-      
-      showNotification('error', errorMessage);
-    } finally {
-      setIsProcessing(false);
+      if (result.success) {
+        setParsedData(result.data);
+        addToHistory(result.data);
+        setSuccess('JSON data processed successfully!');
+        setError('');
+      } else {
+        setError(`JSON parsing error: ${result.error}`);
+        setParsedData(null);
+      }
+      setProcessing(false);
+    }, 500);
+  };
+
+  const loadSample = () => {
+    const formattedSample = JSON.stringify(sampleData, null, 2);
+    setJsonInput(formattedSample);
+    setParsedData(sampleData);
+    addToHistory(sampleData);
+    setError('');
+    setSuccess('Sample data loaded successfully!');
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        setJsonInput(content);
+        const result = validateAndParseJSON(content);
+        if (result.success) {
+          setParsedData(result.data);
+          addToHistory(result.data);
+          setSuccess('File uploaded and processed successfully!');
+          setError('');
+        } else {
+          setError(`File parsing error: ${result.error}`);
+        }
+      };
+      reader.readAsText(file);
     }
   };
 
-  const generateTextSummary = (): string => {
+  const formatJSON = () => {
+    if (jsonInput) {
+      const result = validateAndParseJSON(jsonInput);
+      if (result.success) {
+        setJsonInput(JSON.stringify(result.data, null, 2));
+        setSuccess('JSON formatted successfully!');
+      }
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(jsonInput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadData = (format) => {
+    if (!parsedData) return;
+    
+    let content, filename, mimeType;
+    
+    switch (format) {
+      case 'json':
+        content = JSON.stringify(parsedData, null, 2);
+        filename = 'data.json';
+        mimeType = 'application/json';
+        break;
+      case 'csv':
+        content = convertToCSV(parsedData);
+        filename = 'data.csv';
+        mimeType = 'text/csv';
+        break;
+      default:
+        return;
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const convertToCSV = (data) => {
+    if (data.labels && data.values) {
+      const headers = ['Label', 'Value'];
+      const rows = data.labels.map((label, index) => [label, data.values[index]]);
+      return [headers, ...rows].map(row => row.join(',')).join('\n');
+    }
+    return JSON.stringify(data);
+  };
+
+  const generateSummary = () => {
     if (!parsedData) return '';
     
-    const { title, values, labels } = parsedData;
-    const total = values.reduce((sum, val) => sum + val, 0);
-    const average = total / values.length;
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const maxIndex = values.indexOf(max);
-    const minIndex = values.indexOf(min);
+    let summary = '';
     
-    return `Data Summary for "${title}": 
-    Total data points: ${values.length}
-    Sum of all values: ${total.toFixed(2)}
-    Average value: ${average.toFixed(2)}
-    Highest value: ${max} (${labels[maxIndex]})
-    Lowest value: ${min} (${labels[minIndex]})
-    Data range: ${labels.join(', ')}`;
-  };
-
-  const speakSummary = () => {
-    if (!parsedData || isSpeaking) return;
-
-    // Check if browser supports speech synthesis
-    if (!('speechSynthesis' in window)) {
-      showNotification('error', "Your browser doesn't support text-to-speech");
-      return;
+    if (parsedData.title) {
+      summary += `Dataset: ${parsedData.title}\n`;
     }
-
-    const summary = generateTextSummary();
-    const utterance = new SpeechSynthesisUtterance(summary);
     
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      showNotification('error', "Failed to speak the summary");
-    };
-
-    window.speechSynthesis.speak(utterance);
+    if (parsedData.values && Array.isArray(parsedData.values)) {
+      const values = parsedData.values;
+      const total = values.reduce((sum, val) => sum + val, 0);
+      const avg = total / values.length;
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      
+      summary += `\nStatistics:\n`;
+      summary += `- Total: ${total}\n`;
+      summary += `- Average: ${avg.toFixed(2)}\n`;
+      summary += `- Maximum: ${max}\n`;
+      summary += `- Minimum: ${min}\n`;
+      summary += `- Count: ${values.length}\n`;
+    }
+    
+    if (parsedData.labels && Array.isArray(parsedData.labels)) {
+      summary += `\nLabels: ${parsedData.labels.length} items\n`;
+    }
+    
+    return summary;
   };
 
-  const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-  };
-
-  const loadSampleData = () => {
-    setJsonInput(JSON.stringify(sampleData, null, 2));
-    setError('');
-  };
-
-  const prepareChartData = (): ChartData[] => {
+  const prepareChartData = () => {
     if (!parsedData) return [];
-    return parsedData.labels.map((label, index) => ({
-      name: label,
-      value: parsedData.values[index]
-    }));
+    
+    if (parsedData.values && parsedData.labels) {
+      return parsedData.labels.map((label, index) => ({
+        name: label,
+        value: parsedData.values[index] || 0,
+        x: index,
+        y: parsedData.values[index] || 0
+      }));
+    }
+    
+    if (parsedData.categoryValues && parsedData.categories) {
+      return parsedData.categories.map((category, index) => ({
+        name: category,
+        value: parsedData.categoryValues[index] || 0,
+        x: index,
+        y: parsedData.categoryValues[index] || 0
+      }));
+    }
+    
+    return [];
   };
 
   const renderChart = () => {
     const data = prepareChartData();
-    const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+    if (!data.length) return null;
+
+    const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00c49f'];
 
     switch (chartType) {
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data}>
+            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" />
+              <Legend />
+              <Bar dataKey="value" fill="#8884d8" />
             </BarChart>
           </ResponsiveContainer>
         );
-      
       case 'line':
         return (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data}>
+            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} />
+              <Legend />
+              <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         );
-      
       case 'pie':
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -204,170 +276,242 @@ export default function DataProcessor() {
             </PieChart>
           </ResponsiveContainer>
         );
-      
+      case 'scatter':
+        return (
+          <ResponsiveContainer width="100%" height={300}>
+            <ScatterChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="x" />
+              <YAxis dataKey="y" />
+              <Tooltip />
+              <Scatter name="Data Points" data={data} fill="#8884d8" />
+            </ScatterChart>
+          </ResponsiveContainer>
+        );
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Notification */}
-        {notification && (
-          <div className="fixed top-4 right-4 z-50">
-            <Alert variant={notification.type === 'error' ? 'destructive' : 'default'} className="max-w-md">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{notification.message}</AlertDescription>
-            </Alert>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            JSON Data Processor
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Process JSON data with text summaries, voice output, and interactive visualizations
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-indigo-800 mb-2">JSON Data Processor</h1>
+          <p className="text-gray-600">Advanced JSON processing with visualizations, summaries, and interactive features</p>
         </div>
 
-        {/* Data Input */}
-        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Data Input
-            </CardTitle>
-            <CardDescription>
-              Enter JSON data in the format: {`{ "title": "string", "values": [numbers], "labels": [strings] }`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="json-input">JSON Data</Label>
-              <Textarea
-                id="json-input"
-                placeholder="Enter your JSON data here..."
-                value={jsonInput}
-                onChange={(e) => setJsonInput(e.target.value)}
-                className="min-h-[120px] font-mono"
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Input Section */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Data Input
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  title="Undo"
+                >
+                  <RefreshCw className="w-4 h-4 rotate-180" />
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  title="Redo"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            
-            <div className="flex gap-3 flex-wrap">
-              <Button 
-                onClick={processData} 
-                disabled={isProcessing}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Enter JSON data or upload a file
+              </p>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload File
+                </button>
+                <button
+                  onClick={formatJSON}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  Format
+                </button>
+                <button
+                  onClick={copyToClipboard}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder='Enter JSON data...'
+              className="w-full h-64 p-4 border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+
+            <div className="flex gap-4 mt-4">
+              <button
+                onClick={processData}
+                disabled={processing}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg transition-colors"
               >
-                {isProcessing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Process Data
-                  </>
-                )}
-              </Button>
-              
-              <Button variant="outline" onClick={loadSampleData}>
-                <FileText className="mr-2 h-4 w-4" />
+                <Play className="w-4 h-4" />
+                {processing ? 'Processing...' : 'Process Data'}
+              </button>
+              <button
+                onClick={loadSample}
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <FileText className="w-4 h-4" />
                 Load Sample
-              </Button>
+              </button>
             </div>
 
+            {/* Status Messages */}
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span className="text-red-700">{error}</span>
+              </div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Results */}
-        {parsedData && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Text Summary */}
-            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Text Summary
-                </CardTitle>
-                <CardDescription>Automated data analysis and insights</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap font-mono text-gray-700">
-                    {generateTextSummary()}
-                  </pre>
-                </div>
-                
+            {success && (
+              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span className="text-green-700">{success}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Output Section */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Analysis & Visualization</h2>
+              {parsedData && (
                 <div className="flex gap-2">
-                  <Button 
-                    onClick={isSpeaking ? stopSpeaking : speakSummary}
-                    variant={isSpeaking ? "destructive" : "default"}
-                    size="sm"
+                  <button
+                    onClick={() => downloadData('json')}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
                   >
-                    <Volume2 className="mr-2 h-4 w-4" />
-                    {isSpeaking ? 'Stop Speaking' : 'Speak Summary'}
-                  </Button>
+                    <Download className="w-4 h-4" />
+                    JSON
+                  </button>
+                  <button
+                    onClick={() => downloadData('csv')}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    CSV
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
 
-            {/* Chart Visualization */}
-            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Data Visualization
-                </CardTitle>
-                <CardDescription>Interactive charts and graphs</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2 mb-4">
-                  {['bar', 'line', 'pie'].map((type) => (
-                    <Button
-                      key={type}
-                      variant={chartType === type ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartType(type as 'bar' | 'line' | 'pie')}
-                    >
-                      {type.charAt(0).toUpperCase() + type.slice(1)} Chart
-                    </Button>
-                  ))}
+            {parsedData ? (
+              <div className="space-y-6">
+                {/* Chart Type Selector */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setChartType('bar')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      chartType === 'bar' 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Bar Chart
+                  </button>
+                  <button
+                    onClick={() => setChartType('line')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      chartType === 'line' 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Line Chart
+                  </button>
+                  <button
+                    onClick={() => setChartType('pie')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      chartType === 'pie' 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    <PieChart className="w-4 h-4" />
+                    Pie Chart
+                  </button>
+                  <button
+                    onClick={() => setChartType('scatter')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      chartType === 'scatter' 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    Scatter Plot
+                  </button>
                 </div>
-                
-                <div className="w-full">
+
+                {/* Chart */}
+                <div className="bg-gray-50 rounded-lg p-4">
                   {renderChart()}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
-        {/* Success indicator */}
-        {parsedData && (
-          <Card className="border-green-200 bg-green-50/50">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="font-medium text-green-800">Data processed successfully!</p>
-                <p className="text-sm text-green-600">
-                  All three output formats are now available: text summary, voice output, and chart visualization.
-                </p>
+                {/* Summary */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-800 mb-2">Data Summary</h3>
+                  <pre className="text-sm text-gray-600 whitespace-pre-wrap">
+                    {generateSummary()}
+                  </pre>
+                </div>
+
+                {/* Raw Data Preview */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-800 mb-2">Raw Data</h3>
+                  <pre className="text-sm text-gray-600 max-h-32 overflow-y-auto">
+                    {JSON.stringify(parsedData, null, 2)}
+                  </pre>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Process JSON data to see visualization and analysis</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default JSONDataProcessor;
