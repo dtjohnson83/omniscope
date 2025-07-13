@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { agentRunner } from './lib/agentRunner';
 import Dashboard from './pages/Dashboard';
 import DataProcessor from './components/DataProcessor';
-import AgentRegistrationSystem from './components/AgentRegistrationSystem';  // Corrected relative path, no .tsx extension
+import AgentRegistrationSystem from './components/AgentRegistrationSystem';
 
 function App() {
   useEffect(() => {
