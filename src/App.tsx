@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { agentRunner } from './lib/agentRunner';
 import Dashboard from './pages/Dashboard';
 import DataProcessor from './components/DataProcessor';
-import AgentRegistrationSystem from './components/AgentRegistrationSystem';
+import AgentRegistrationSystem from './components/ui/omniscope/src/components/AgentRegistrationSystem';
 
 function App() {
   useEffect(() => {
