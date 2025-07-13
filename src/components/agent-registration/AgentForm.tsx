@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AGENT_CATEGORIES, AUTH_METHODS, COMMUNICATION_METHODS, PAYLOAD_FORMATS } from './constants';
 import { FormData } from './types';
+import { supabase } from '../lib/supabase';
+import { useContext } from 'react'; // If using AgentContext for addAgent
+import { AgentContext } from '../context/AgentContext'; // Optional, if you have this
 
 interface AgentFormProps {
   formData: FormData;
@@ -16,17 +18,69 @@ interface AgentFormProps {
 }
 
 export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey }: AgentFormProps) {
+  const { addAgent } = useContext(AgentContext); // Optional
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session?.user) {
+      alert('Please log in to register agents');
+      return;
+    }
+
+    const tagsArray = formData.tags ? formData.tags.split(',').map(t => t.trim()) : [];
+    const dataTypesArray = formData.dataTypes ? formData.dataTypes.split(',').map(t => t.trim()) : [];
+
+    let customHeadersJson = {};
+    let customConfigJson = {};
+    try {
+      customHeadersJson = formData.customHeaders ? JSON.parse(formData.customHeaders) : {};
+      customConfigJson = formData.customConfig ? JSON.parse(formData.customConfig) : {};
+    } catch (err) {
+      alert('Invalid JSON in custom headers or config');
+      return;
+    }
+
+    const { data, error } = await supabase.from('agents').insert({
+      user_id: session.session.user.id,
+      name: formData.name,
+      category: formData.category,
+      description: formData.description,
+      version: formData.version,
+      tags: tagsArray,
+      communication_method: formData.communicationMethod,
+      payload_format: formData.payloadFormat,
+      endpoint: formData.webhookUrl,
+      auth_method: formData.authMethod,
+      api_key: formData.apiKey,
+      data_types: dataTypesArray,
+      custom_headers: customHeadersJson,
+      custom_config: customConfigJson,
+      schedule_enabled: formData.scheduleEnabled,
+      schedule_frequency: parseInt(formData.scheduleFrequency || '60'),
+      // Add next_execution if enabled: new Date(Date.now() + parseInt(formData.scheduleFrequency || '60') * 60000).toISOString()
+    }).select();
+
+    if (error) {
+      console.error('Registration error:', error);
+      alert('Failed to register agent');
+    } else if (data && data[0]) {
+      addAgent?.(data[0]); // Optional: Update context
+      alert('Agent registered successfully!');
+      // Optionally reset form or navigate
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>+ Register New Agent</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Basic Information</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Agent Name *</Label>
@@ -38,7 +92,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                   required
                 />
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <select
@@ -53,7 +106,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                 </select>
               </div>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>
               <Textarea
@@ -65,7 +117,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                 required
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="version">Version</Label>
@@ -76,7 +127,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                   placeholder="1.0.0"
                 />
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="tags">Tags (comma-separated)</Label>
                 <Input
@@ -92,7 +142,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
           {/* Communication Settings */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Communication Settings</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="communicationMethod">Communication Method</Label>
@@ -107,7 +156,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                   ))}
                 </select>
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="payloadFormat">Data Format</Label>
                 <select
@@ -122,7 +170,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                 </select>
               </div>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="webhookUrl">Endpoint URL *</Label>
               <Input
@@ -139,7 +186,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
           {/* Authentication */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Authentication</h3>
-            
             <div className="space-y-2">
               <Label htmlFor="authMethod">Authentication Method</Label>
               <select
@@ -153,7 +199,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="apiKey">API Key / Token</Label>
               <div className="flex gap-2">
@@ -174,7 +219,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
           {/* Data Configuration */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Data Configuration</h3>
-            
             <div className="space-y-2">
               <Label htmlFor="dataTypes">Data Types (comma-separated) *</Label>
               <Input
@@ -190,7 +234,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
           {/* Advanced Configuration */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Advanced Configuration (Optional)</h3>
-            
             <div className="space-y-2">
               <Label htmlFor="customHeaders">Custom Headers (JSON format)</Label>
               <Textarea
@@ -201,7 +244,6 @@ export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey 
                 rows={3}
               />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="customConfig">Custom Configuration (JSON format)</Label>
               <Textarea
