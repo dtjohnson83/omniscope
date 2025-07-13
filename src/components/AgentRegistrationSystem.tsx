@@ -284,6 +284,90 @@ const QueryInterface = ({ user }: { user: any }) => {
     };
   };
 
+  const handleComparisonQuery = async (intent: any, userId: string) => {
+    if (intent.agents.length < 2) {
+      return {
+        answer: "Please specify at least two agents or data types for comparison.",
+        execution_method: 'function_calling'
+      };
+    }
+
+    const agentIds = intent.agents.map((a: any) => a.id);
+
+    const { data } = await supabase
+      .from('agent_data')
+      .select('*')
+      .eq('user_id', userId)
+      .in('agent_id', agentIds)
+      .order('collected_at', { ascending: false })
+      .limit(10);
+
+    // Group data by agent
+    const grouped = data?.reduce((acc: any, record: any) => {
+      const name = record.agents.name;
+      if (!acc[name]) acc[name] = [];
+      acc[name].push(record.processed_data);
+      return acc;
+    }, {});
+
+    // Compare latest values
+    const comparison = {};
+    intent.keywords.forEach(keyword => {
+      const values = intent.agents.map(agent => {
+        const latest = grouped[agent.name][0];
+        return findValueByKeyword(latest, keyword);
+      });
+      comparison[keyword] = values;
+    });
+
+    const answer = Object.entries(comparison).map(([keyword, values]: [string, any]) => {
+      return `${keyword}: ${intent.agents.map((a, i) => `${a.name}: ${values[i]}`).join(', ')}`;
+    }).join('\n');
+
+    return {
+      answer: `Comparison:\n${answer}`,
+      data: grouped,
+      execution_method: 'function_calling'
+    };
+  };
+
+  const handleTrendQuery = async (intent: any, userId: string) => {
+    const agentIds = intent.agents.map((a: any) => a.id);
+
+    const { data } = await supabase
+      .from('agent_data')
+      .select('*')
+      .eq('user_id', userId)
+      .in('agent_id', agentIds)
+      .order('collected_at', { ascending: false })
+      .limit(50);
+
+    // Simple trend analysis
+    const trends = intent.agents.map((agent: any) => {
+      const agentData = data.filter(d => d.agent_id === agent.id).slice(0, 10);
+      const values = agentData.map(d => extractRelevantValues(d.processed_data, intent.keywords));
+      return { agent: agent.name, values };
+    });
+
+    const answer = trends.map(t => {
+      if (intent.keywords.length > 0) {
+        const key = intent.keywords[0];
+        const vals = t.values.map(v => v[key] || 0);
+        if (vals.length < 2) return `${t.agent}: Insufficient data for trend analysis`;
+        const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+        const trend = vals[0] > vals[vals.length - 1] ? 'increasing' : 'decreasing';
+        const change = ((vals[0] - vals[vals.length - 1]) / vals[vals.length - 1]) * 100;
+        return `${t.agent}: ${key} is ${trend} by ${Math.round(change)}% over recent data`;
+      }
+      return `${t.agent}: Data available for analysis`;
+    }).join('\n');
+
+    return {
+      answer: `Trends:\n${answer}`,
+      execution_method: 'function_calling'
+    };
+  };
+
   const handleAllDataQuery = async (intent: any, userId: string) => {
     const { data: agents } = await supabase
       .from('agents')
