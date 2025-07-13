@@ -3,16 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { supabase } from './lib/supabase';
 import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
-import AgentRegistrationSystem from './components/AgentRegistrationSystem';
-
-// Placeholder components to avoid import errors
-function Dashboard() {
-  return <div className="p-4">Dashboard Content - Add your features here</div>;
-}
-
-function DataProcessor() {
-  return <div className="p-4">Data Processor Content - Add JSON upload and AI summary here</div>;
-}
+import Dashboard from './pages/Dashboard'; // Actual location: src/pages/Dashboard.tsx
+import DataProcessor from './components/DataProcessor'; // Actual location: src/components/DataProcessor.tsx
+import AgentRegistrationSystem from './components/AgentRegistrationSystem'; // Actual location: src/components/AgentRegistrationSystem.tsx
 
 function App() {
   const [user, setUser] = useState(null);
