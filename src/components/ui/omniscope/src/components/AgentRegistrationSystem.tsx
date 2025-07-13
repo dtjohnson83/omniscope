@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,30 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, Plus, Users, Database, Webhook, Key, Settings, TestTube } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-// Enhanced Types for more flexibility
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  dataTypes: string[];
-  webhookUrl: string;
-  apiKey: string;
-  status: 'active' | 'inactive' | 'testing';
-  registeredAt: Date;
-  lastActivity?: Date;
-  // Enhanced configuration options
-  authMethod: 'api_key' | 'bearer_token' | 'basic_auth' | 'oauth' | 'custom';
-  customHeaders?: Record<string, string>;
-  payloadFormat: 'json' | 'xml' | 'form_data' | 'custom';
-  communicationMethod: 'webhook' | 'polling' | 'websocket' | 'custom';
-  customConfig?: Record<string, any>;
-  tags: string[];
-  version: string;
-}
+import { supabase, type Agent } from '@/lib/supabase';
 
 // Predefined categories for common agent types
 const AGENT_CATEGORIES = [
@@ -65,49 +43,14 @@ const PAYLOAD_FORMATS = [
   { value: 'custom', label: 'Custom Format' }
 ];
 
-// Mock data with enhanced fields
-const mockAgents: Agent[] = [
-  {
-    id: '1',
-    name: 'Weather Data Provider',
-    description: 'Provides real-time weather data and forecasts',
-    category: 'Data Provider',
-    dataTypes: ['temperature', 'humidity', 'precipitation', 'wind'],
-    webhookUrl: 'https://weather-agent.example.com/webhook',
-    apiKey: 'wea_' + Math.random().toString(36).substr(2, 9),
-    status: 'active',
-    registeredAt: new Date('2024-01-15'),
-    lastActivity: new Date('2024-01-20'),
-    authMethod: 'api_key',
-    payloadFormat: 'json',
-    communicationMethod: 'webhook',
-    tags: ['weather', 'meteorology', 'real-time'],
-    version: '1.0.0'
-  },
-  {
-    id: '2',
-    name: 'Custom ML Model',
-    description: 'Custom machine learning inference endpoint',
-    category: 'AI/ML Service',
-    dataTypes: ['predictions', 'confidence_scores', 'feature_importance'],
-    webhookUrl: 'https://ml-agent.example.com/predict',
-    apiKey: 'ml_' + Math.random().toString(36).substr(2, 9),
-    status: 'testing',
-    registeredAt: new Date('2024-01-10'),
-    authMethod: 'bearer_token',
-    payloadFormat: 'json',
-    communicationMethod: 'polling',
-    customHeaders: { 'X-Model-Version': '2.1.0' },
-    tags: ['ml', 'ai', 'custom'],
-    version: '2.1.0'
-  }
-];
-
 export default function AgentRegistrationSystem() {
-  const [agents, setAgents] = useState<Agent[]>(mockAgents);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [activeTab, setActiveTab] = useState('register');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState<string | null>(null);
   const [testingAgent, setTestingAgent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   
   // Enhanced form state
   const [formData, setFormData] = useState({
@@ -125,6 +68,76 @@ export default function AgentRegistrationSystem() {
     tags: '',
     version: '1.0.0'
   });
+
+  // Check authentication and load agents
+  useEffect(() => {
+    checkUser();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadAgents();
+      } else {
+        setAgents([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        await loadAgents();
+      }
+    } catch (error) {
+      console.error('Error checking user:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAgents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAgents(data || []);
+    } catch (error) {
+      console.error('Error loading agents:', error);
+      setShowError('Failed to load agents');
+    }
+  };
+
+  const signIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing in:', error);
+      setShowError('Failed to sign in');
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -145,44 +158,65 @@ export default function AgentRegistrationSystem() {
 
   const testConnection = async (agentId: string) => {
     setTestingAgent(agentId);
-    // Simulate API test
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setAgents(prev => prev.map(agent => 
-      agent.id === agentId 
-        ? { ...agent, status: 'active', lastActivity: new Date() }
-        : agent
-    ));
-    setTestingAgent(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
     
     try {
-      const customHeaders = formData.customHeaders ? JSON.parse(formData.customHeaders) : undefined;
-      const customConfig = formData.customConfig ? JSON.parse(formData.customConfig) : undefined;
+      // Simulate API test - in real implementation, you'd test the actual endpoint
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const newAgent: Agent = {
-        id: (agents.length + 1).toString(),
+      const { error } = await supabase
+        .from('agents')
+        .update({ status: 'active' })
+        .eq('id', agentId);
+
+      if (error) throw error;
+      
+      await loadAgents();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      setShowError('Failed to test connection');
+    } finally {
+      setTestingAgent(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      setShowError('Please sign in to register agents');
+      return;
+    }
+
+    try {
+      const customHeaders = formData.customHeaders ? JSON.parse(formData.customHeaders) : null;
+      const customConfig = formData.customConfig ? JSON.parse(formData.customConfig) : null;
+      
+      const newAgent = {
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        dataTypes: formData.dataTypes.split(',').map(type => type.trim()),
-        webhookUrl: formData.webhookUrl,
-        apiKey: formData.apiKey,
-        status: 'inactive',
-        registeredAt: new Date(),
-        authMethod: formData.authMethod,
-        payloadFormat: formData.payloadFormat,
-        communicationMethod: formData.communicationMethod,
-        customHeaders,
-        customConfig,
+        data_types: formData.dataTypes.split(',').map(type => type.trim()),
+        webhook_url: formData.webhookUrl,
+        api_key: formData.apiKey,
+        status: 'inactive' as const,
+        auth_method: formData.authMethod,
+        payload_format: formData.payloadFormat,
+        communication_method: formData.communicationMethod,
+        custom_headers: customHeaders,
+        custom_config: customConfig,
         tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-        version: formData.version
+        version: formData.version,
+        user_id: user.id
       };
 
-      setAgents(prev => [...prev, newAgent]);
+      const { error } = await supabase
+        .from('agents')
+        .insert([newAgent]);
+
+      if (error) throw error;
+
       setFormData({
         name: '',
         description: '',
@@ -202,18 +236,49 @@ export default function AgentRegistrationSystem() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setActiveTab('manage');
+      await loadAgents();
     } catch (error) {
-      console.error('Invalid JSON in custom configuration:', error);
-      alert('Please check your custom headers and configuration for valid JSON format');
+      console.error('Error registering agent:', error);
+      setShowError('Failed to register agent. Please check your JSON format.');
     }
   };
 
-  const toggleAgentStatus = (id: string) => {
-    setAgents(prev => prev.map(agent => 
-      agent.id === id 
-        ? { ...agent, status: agent.status === 'active' ? 'inactive' : 'active' }
-        : agent
-    ));
+  const toggleAgentStatus = async (id: string) => {
+    const agent = agents.find(a => a.id === id);
+    if (!agent) return;
+
+    try {
+      const newStatus = agent.status === 'active' ? 'inactive' : 'active';
+      const { error } = await supabase
+        .from('agents')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadAgents();
+    } catch (error) {
+      console.error('Error updating agent status:', error);
+      setShowError('Failed to update agent status');
+    }
+  };
+
+  const deleteAgent = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this agent?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('agents')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadAgents();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error deleting agent:', error);
+      setShowError('Failed to delete agent');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -225,48 +290,90 @@ export default function AgentRegistrationSystem() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-bold text-blue-600">Universal Agent Registration System</h1>
+          <p className="text-gray-600">Connect any agent, service, or data source to your platform</p>
+          
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <CardTitle>Sign In Required</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">Please sign in to manage your agents</p>
+              <Button onClick={signIn} className="w-full">
+                🔗 Sign in with GitHub
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-blue-600">Universal Agent Registration System</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-blue-600">Universal Agent Registration System</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">👋 {user.email}</span>
+            <Button variant="outline" onClick={signOut}>Sign Out</Button>
+          </div>
+        </div>
         <p className="text-gray-600">Connect any agent, service, or data source to your platform</p>
       </div>
 
       {showSuccess && (
         <Alert className="border-green-200 bg-green-50">
-          <AlertCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
-            Agent registered successfully! Test the connection to activate it.
+            ✅ Operation completed successfully!
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {showError && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
+            ❌ {showError}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowError(null)}
+              className="ml-2 text-red-800 hover:text-red-900"
+            >
+              ✕
+            </Button>
           </AlertDescription>
         </Alert>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="register" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Register Agent
-          </TabsTrigger>
-          <TabsTrigger value="manage" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Manage Agents
-          </TabsTrigger>
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
+          <TabsTrigger value="register">+ Register Agent</TabsTrigger>
+          <TabsTrigger value="manage">👥 Manage Agents</TabsTrigger>
+          <TabsTrigger value="overview">📊 Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="register" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Register New Agent
-              </CardTitle>
+              <CardTitle>+ Register New Agent</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold border-b pb-2">Basic Information</h3>
@@ -409,8 +516,7 @@ export default function AgentRegistrationSystem() {
                         type="password"
                       />
                       <Button type="button" onClick={generateApiKey} variant="outline">
-                        <Key className="h-4 w-4 mr-2" />
-                        Generate
+                        🔑 Generate
                       </Button>
                     </div>
                   </div>
@@ -459,10 +565,10 @@ export default function AgentRegistrationSystem() {
                   </div>
                 </div>
 
-                <Button onClick={handleSubmit} className="w-full">
+                <Button type="submit" className="w-full">
                   Register Agent
                 </Button>
-              </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -470,83 +576,78 @@ export default function AgentRegistrationSystem() {
         <TabsContent value="manage" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Registered Agents
-              </CardTitle>
+              <CardTitle>👥 Your Registered Agents</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-2 text-left">Agent</th>
-                      <th className="border border-gray-200 px-4 py-2 text-left">Category</th>
-                      <th className="border border-gray-200 px-4 py-2 text-left">Status</th>
-                      <th className="border border-gray-200 px-4 py-2 text-left">Communication</th>
-                      <th className="border border-gray-200 px-4 py-2 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {agents.map((agent) => (
-                      <tr key={agent.id} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 px-4 py-2">
-                          <div>
-                            <div className="font-medium">{agent.name}</div>
-                            <div className="text-sm text-gray-500">{agent.description}</div>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {agent.tags.slice(0, 2).map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {agent.tags.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{agent.tags.length - 2}
-                                </Badge>
-                              )}
-                            </div>
+              {agents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No agents registered yet. Click "Register Agent" to get started!
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {agents.map((agent) => (
+                    <div key={agent.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold">{agent.name}</h3>
+                            <Badge variant="secondary">{agent.category}</Badge>
+                            <Badge className={getStatusColor(agent.status)}>
+                              {agent.status}
+                            </Badge>
                           </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2">
-                          <Badge variant="secondary">{agent.category}</Badge>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2">
-                          <Badge className={getStatusColor(agent.status)}>
-                            {agent.status}
-                          </Badge>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2">
-                          <div className="text-sm">
-                            <div>{agent.communicationMethod}</div>
-                            <div className="text-gray-500">{agent.payloadFormat}</div>
+                          <p className="text-sm text-gray-600 mb-2">{agent.description}</p>
+                          
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {agent.tags.slice(0, 3).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {agent.tags.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{agent.tags.length - 3} more
+                              </Badge>
+                            )}
                           </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => testConnection(agent.id)}
-                              disabled={testingAgent === agent.id}
-                            >
-                              <TestTube className="h-4 w-4 mr-1" />
-                              {testingAgent === agent.id ? 'Testing...' : 'Test'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => toggleAgentStatus(agent.id)}
-                            >
-                              {agent.status === 'active' ? 'Disable' : 'Enable'}
-                            </Button>
+                          
+                          <div className="text-sm text-gray-500">
+                            <div><strong>Endpoint:</strong> {agent.webhook_url}</div>
+                            <div><strong>Communication:</strong> {agent.communication_method} | {agent.payload_format}</div>
+                            <div><strong>Created:</strong> {new Date(agent.created_at).toLocaleDateString()}</div>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => testConnection(agent.id)}
+                            disabled={testingAgent === agent.id}
+                          >
+                            {testingAgent === agent.id ? '🔄 Testing...' : '🧪 Test'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleAgentStatus(agent.id)}
+                          >
+                            {agent.status === 'active' ? '⏸️ Disable' : '▶️ Enable'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteAgent(agent.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            🗑️ Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -590,70 +691,42 @@ export default function AgentRegistrationSystem() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-orange-600">
-                  {new Set(agents.flatMap(a => a.dataTypes)).size}
+                  {new Set(agents.flatMap(a => a.data_types)).size}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Agent Configuration Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {agents.map((agent) => (
-                  <div key={agent.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
+          {agents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>⚙️ Agent Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {agents.map((agent) => (
+                    <div key={agent.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
                         <h3 className="font-semibold">{agent.name}</h3>
-                        <p className="text-sm text-gray-600">{agent.description}</p>
+                        <Badge className={getStatusColor(agent.status)}>
+                          {agent.status}
+                        </Badge>
                       </div>
-                      <Badge className={getStatusColor(agent.status)}>
-                        {agent.status}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-3">
-                      <div><strong>Category:</strong> {agent.category}</div>
-                      <div><strong>Version:</strong> {agent.version}</div>
-                      <div><strong>Communication:</strong> {agent.communicationMethod}</div>
-                      <div><strong>Format:</strong> {agent.payloadFormat}</div>
-                      <div><strong>Auth:</strong> {agent.authMethod}</div>
-                      <div><strong>Endpoint:</strong> {agent.webhookUrl}</div>
-                    </div>
-                    
-                    <div className="mt-3">
-                      <div className="text-sm"><strong>Data Types:</strong></div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {agent.dataTypes.map((type) => (
-                          <Badge key={type} variant="secondary" className="text-xs">
-                            {type}
-                          </Badge>
-                        ))}
+                      <p className="text-sm text-gray-600 mb-2">{agent.description}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div><strong>Category:</strong> {agent.category}</div>
+                        <div><strong>Version:</strong> {agent.version}</div>
+                        <div><strong>Communication:</strong> {agent.communication_method}</div>
+                        <div><strong>Format:</strong> {agent.payload_format}</div>
+                        <div><strong>Auth:</strong> {agent.auth_method}</div>
+                        <div><strong>Data Types:</strong> {agent.data_types.join(', ')}</div>
                       </div>
                     </div>
-                    
-                    {agent.tags.length > 0 && (
-                      <div className="mt-3">
-                        <div className="text-sm"><strong>Tags:</strong></div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {agent.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
