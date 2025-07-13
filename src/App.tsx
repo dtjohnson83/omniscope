@@ -1,4 +1,4 @@
-import AgentRegistrationSystem from './components/AgentRegistrationSystem'
+import AgentRegistrationSystem from './components/AgentRegistrationSystem.tsx'
 
 function App() {
   return (
