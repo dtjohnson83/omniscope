@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { AuthForm } from './components/Auth';
-import { Button } from '@/components/ui/button'; // shadcn-ui import
-import Dashboard from './components/Dashboard'; // Assume this exists or create a placeholder
-import DataProcessor from './components/DataProcessor'; // Assume this exists
-import AgentRegistrationSystem from './components/AgentRegistrationSystem'; // Import here if it's the full Agents page
+import { Button } from '@/components/ui/button';
+import Dashboard from './components/Dashboard'; // Placeholder or your component
+import DataProcessor from './components/DataProcessor'; // Placeholder or your component
+import AgentRegistrationSystem from './components/AgentRegistrationSystem'; // Your agents page
 
 function App() {
   const [user, setUser] = useState(null);
@@ -43,7 +43,7 @@ function App() {
           <div className="space-x-4">
             <a href="/" className="text-blue-600 hover:underline">Dashboard</a>
             <a href="/data-processor" className="text-blue-600 hover:underline">Data Processor</a>
-            <a href="/agents" className="text-blue-600 hover:underline">Agents</a>
+            <a href="/agent-registration" className="text-blue-600 hover:underline">Agent Registration</a>
           </div>
           <div className="flex items-center space-x-2">
             <span>👤 {user.email}</span>
@@ -54,8 +54,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
-            <Route path="/agents" element={<AgentRegistrationSystem />} />
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="/agent-registration" element={<AgentRegistrationSystem />} />
+            <Route path="*" element={<div>404 - Page Not Found</div>} /> {/* Custom 404 */}
           </Routes>
         </main>
       </div>
