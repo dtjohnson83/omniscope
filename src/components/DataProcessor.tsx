@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import { Upload, Play, FileText, BarChart3, PieChart, TrendingUp, Zap, Download, RefreshCw, Copy, Check, AlertCircle, CheckCircle } from 'lucide-react';
+import Navigation from './Navigation';
 
 const JSONDataProcessor = () => {
   const [jsonInput, setJsonInput] = useState('');
@@ -294,219 +295,222 @@ const JSONDataProcessor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-indigo-800 mb-2">JSON Data Processor</h1>
-          <p className="text-gray-600">Advanced JSON processing with visualizations, summaries, and interactive features</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Input Section */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                Data Input
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={undo}
-                  disabled={historyIndex <= 0}
-                  className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                  title="Undo"
-                >
-                  <RefreshCw className="w-4 h-4 rotate-180" />
-                </button>
-                <button
-                  onClick={redo}
-                  disabled={historyIndex >= history.length - 1}
-                  className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                  title="Redo"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Enter JSON data or upload a file
-              </p>
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  ref={fileInputRef}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload File
-                </button>
-                <button
-                  onClick={formatJSON}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  <FileText className="w-4 h-4" />
-                  Format
-                </button>
-                <button
-                  onClick={copyToClipboard}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
-              placeholder='Enter JSON data...'
-              className="w-full h-64 p-4 border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-
-            <div className="flex gap-4 mt-4">
-              <button
-                onClick={processData}
-                disabled={processing}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                {processing ? 'Processing...' : 'Process Data'}
-              </button>
-              <button
-                onClick={loadSample}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                Load Sample
-              </button>
-            </div>
-
-            {/* Status Messages */}
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-                <span className="text-red-700">{error}</span>
-              </div>
-            )}
-
-            {success && (
-              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-green-700">{success}</span>
-              </div>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Navigation />
+      <div className="p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-indigo-800 mb-2">JSON Data Processor</h1>
+            <p className="text-gray-600">Advanced JSON processing with visualizations, summaries, and interactive features</p>
           </div>
 
-          {/* Output Section */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Analysis & Visualization</h2>
-              {parsedData && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Input Section */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Data Input
+                </h2>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => downloadData('json')}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                    onClick={undo}
+                    disabled={historyIndex <= 0}
+                    className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                    title="Undo"
                   >
-                    <Download className="w-4 h-4" />
-                    JSON
+                    <RefreshCw className="w-4 h-4 rotate-180" />
                   </button>
                   <button
-                    onClick={() => downloadData('csv')}
-                    className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+                    onClick={redo}
+                    disabled={historyIndex >= history.length - 1}
+                    className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                    title="Redo"
                   >
-                    <Download className="w-4 h-4" />
-                    CSV
+                    <RefreshCw className="w-4 h-4" />
                   </button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Enter JSON data or upload a file
+                </p>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    ref={fileInputRef}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload File
+                  </button>
+                  <button
+                    onClick={formatJSON}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Format
+                  </button>
+                  <button
+                    onClick={copyToClipboard}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                value={jsonInput}
+                onChange={(e) => setJsonInput(e.target.value)}
+                placeholder='Enter JSON data...'
+                className="w-full h-64 p-4 border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+
+              <div className="flex gap-4 mt-4">
+                <button
+                  onClick={processData}
+                  disabled={processing}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg transition-colors"
+                >
+                  <Play className="w-4 h-4" />
+                  {processing ? 'Processing...' : 'Process Data'}
+                </button>
+                <button
+                  onClick={loadSample}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  Load Sample
+                </button>
+              </div>
+
+              {/* Status Messages */}
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <span className="text-red-700">{error}</span>
+                </div>
+              )}
+
+              {success && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-green-700">{success}</span>
                 </div>
               )}
             </div>
 
-            {parsedData ? (
-              <div className="space-y-6">
-                {/* Chart Type Selector */}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setChartType('bar')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      chartType === 'bar' 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    Bar Chart
-                  </button>
-                  <button
-                    onClick={() => setChartType('line')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      chartType === 'line' 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Line Chart
-                  </button>
-                  <button
-                    onClick={() => setChartType('pie')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      chartType === 'pie' 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <PieChart className="w-4 h-4" />
-                    Pie Chart
-                  </button>
-                  <button
-                    onClick={() => setChartType('scatter')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      chartType === 'scatter' 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <Zap className="w-4 h-4" />
-                    Scatter Plot
-                  </button>
-                </div>
-
-                {/* Chart */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  {renderChart()}
-                </div>
-
-                {/* Summary */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">Data Summary</h3>
-                  <pre className="text-sm text-gray-600 whitespace-pre-wrap">
-                    {generateSummary()}
-                  </pre>
-                </div>
-
-                {/* Raw Data Preview */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">Raw Data</h3>
-                  <pre className="text-sm text-gray-600 max-h-32 overflow-y-auto">
-                    {JSON.stringify(parsedData, null, 2)}
-                  </pre>
-                </div>
+            {/* Output Section */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Analysis & Visualization</h2>
+                {parsedData && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => downloadData('json')}
+                      className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      JSON
+                    </button>
+                    <button
+                      onClick={() => downloadData('csv')}
+                      className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      CSV
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Process JSON data to see visualization and analysis</p>
-              </div>
-            )}
+
+              {parsedData ? (
+                <div className="space-y-6">
+                  {/* Chart Type Selector */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setChartType('bar')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        chartType === 'bar' 
+                          ? 'bg-indigo-600 text-white' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      Bar Chart
+                    </button>
+                    <button
+                      onClick={() => setChartType('line')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        chartType === 'line' 
+                          ? 'bg-indigo-600 text-white' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      Line Chart
+                    </button>
+                    <button
+                      onClick={() => setChartType('pie')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        chartType === 'pie' 
+                          ? 'bg-indigo-600 text-white' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <PieChart className="w-4 h-4" />
+                      Pie Chart
+                    </button>
+                    <button
+                      onClick={() => setChartType('scatter')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        chartType === 'scatter' 
+                          ? 'bg-indigo-600 text-white' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <Zap className="w-4 h-4" />
+                      Scatter Plot
+                    </button>
+                  </div>
+
+                  {/* Chart */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    {renderChart()}
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-800 mb-2">Data Summary</h3>
+                    <pre className="text-sm text-gray-600 whitespace-pre-wrap">
+                      {generateSummary()}
+                    </pre>
+                  </div>
+
+                  {/* Raw Data Preview */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-800 mb-2">Raw Data</h3>
+                    <pre className="text-sm text-gray-600 max-h-32 overflow-y-auto">
+                      {JSON.stringify(parsedData, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>Process JSON data to see visualization and analysis</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
