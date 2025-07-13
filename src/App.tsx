@@ -1,4 +1,4 @@
-import AgentRegistrationSystem from './components/ui/omniscope/src/components/AgentRegistrationSystem'
+import AgentRegistrationSystem from 'src/components/AgentRegistrationSystem.tsx'
 
 function App() {
   return (
