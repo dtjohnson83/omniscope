@@ -3,19 +3,34 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { supabase } from './lib/supabase';
 import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
-import Dashboard from './components/Dashboard'; // Placeholder or your component
-import DataProcessor from './components/DataProcessor'; // Placeholder or your component
-import AgentRegistrationSystem from './components/AgentRegistrationSystem'; // Your agents page
+import AgentRegistrationSystem from './components/AgentRegistrationSystem';
+
+// Placeholder components to avoid import errors
+function Dashboard() {
+  return <div className="p-4">Dashboard Content - Add your features here</div>;
+}
+
+function DataProcessor() {
+  return <div className="p-4">Data Processor Content - Add JSON upload and AI summary here</div>;
+}
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const fetchSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch (err) {
+        setError('Auth error: ' + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -25,11 +40,16 @@ function App() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (err) {
+      setError('Logout error: ' + err.message);
+    }
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  if (error) return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>;
 
   if (!user) {
     return <AuthForm onAuthSuccess={() => supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))} />;
@@ -43,7 +63,7 @@ function App() {
           <div className="space-x-4">
             <a href="/" className="text-blue-600 hover:underline">Dashboard</a>
             <a href="/data-processor" className="text-blue-600 hover:underline">Data Processor</a>
-            <a href="/agent-registration" className="text-blue-600 hover:underline">Agent Registration</a>
+            <a href="/agents" className="text-blue-600 hover:underline">Agents</a>
           </div>
           <div className="flex items-center space-x-2">
             <span>👤 {user.email}</span>
@@ -54,8 +74,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
-            <Route path="/agent-registration" element={<AgentRegistrationSystem />} />
-            <Route path="*" element={<div>404 - Page Not Found</div>} /> {/* Custom 404 */}
+            <Route path="/agents" element={<AgentRegistrationSystem />} />
+            <Route path="*" element={<div className="text-center text-red-500">404 - Page Not Found</div>} />
           </Routes>
         </main>
       </div>
