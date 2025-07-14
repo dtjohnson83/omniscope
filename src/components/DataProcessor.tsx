@@ -68,6 +68,9 @@ export default function DataProcessor() {
   const [loadingAgentData, setLoadingAgentData] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [dataSource, setDataSource] = useState<'manual' | 'agent'>('manual');
+  
+  // Context-aware display state
+  const [displayContext, setDisplayContext] = useState<'dashboard' | 'mobile' | 'meeting' | 'ambient'>('dashboard');
 
   useEffect(() => {
     checkUser();
@@ -230,24 +233,64 @@ export default function DataProcessor() {
         summaryText += `Data types: ${agent.data_types.join(', ')}\n\n`;
       }
       
-      summaryText += `Dataset contains ${totalRecords} records with ${fields.length} fields.\n`;
-      summaryText += `Fields: ${fields.join(', ')}\n`;
-      
-      if (numericFields.length > 0) {
-        summaryText += `\nNumeric analysis:\n`;
-        numericFields.forEach(field => {
-          const values = data.map(item => item[field]).filter(val => typeof val === 'number');
+      // Context-aware summary formatting
+      if (displayContext === 'mobile') {
+        summaryText += `📱 Mobile Summary:\n${totalRecords} records, ${fields.length} fields\n`;
+        if (numericFields.length > 0) {
+          const firstField = numericFields[0];
+          const values = data.map(item => item[firstField]).filter(val => typeof val === 'number');
           if (values.length > 0) {
-            const sum = values.reduce((a, b) => a + b, 0);
-            const avg = sum / values.length;
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            summaryText += `- ${field}: Average = ${avg.toFixed(2)}, Total = ${sum}, Min = ${min}, Max = ${max}\n`;
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            summaryText += `Key metric (${firstField}): ${avg.toFixed(1)} avg\n`;
           }
-        });
+        }
+      } else if (displayContext === 'meeting') {
+        summaryText += `🏢 Meeting Brief:\n`;
+        summaryText += `Dataset: ${totalRecords} records analyzed\n`;
+        if (numericFields.length > 0) {
+          summaryText += `Key insights:\n`;
+          numericFields.slice(0, 2).forEach(field => {
+            const values = data.map(item => item[field]).filter(val => typeof val === 'number');
+            if (values.length > 0) {
+              const sum = values.reduce((a, b) => a + b, 0);
+              const avg = sum / values.length;
+              summaryText += `• ${field}: ${avg.toFixed(2)} average, ${sum} total\n`;
+            }
+          });
+        }
+      } else if (displayContext === 'ambient') {
+        summaryText += `🌐 Quick Glance:\n`;
+        if (numericFields.length > 0) {
+          const firstField = numericFields[0];
+          const values = data.map(item => item[firstField]).filter(val => typeof val === 'number');
+          if (values.length > 0) {
+            const latest = values[0];
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            summaryText += `${firstField}: ${latest} (avg: ${avg.toFixed(1)})\n`;
+          }
+        }
+        summaryText += `${totalRecords} data points\n`;
+      } else {
+        // Dashboard mode - full detail
+        summaryText += `Dataset contains ${totalRecords} records with ${fields.length} fields.\n`;
+        summaryText += `Fields: ${fields.join(', ')}\n`;
+        
+        if (numericFields.length > 0) {
+          summaryText += `\nNumeric analysis:\n`;
+          numericFields.forEach(field => {
+            const values = data.map(item => item[field]).filter(val => typeof val === 'number');
+            if (values.length > 0) {
+              const sum = values.reduce((a, b) => a + b, 0);
+              const avg = sum / values.length;
+              const min = Math.min(...values);
+              const max = Math.max(...values);
+              summaryText += `- ${field}: Average = ${avg.toFixed(2)}, Total = ${sum}, Min = ${min}, Max = ${max}\n`;
+            }
+          });
+        }
       }
       
-      if (agent) {
+      if (agent && displayContext === 'dashboard') {
         summaryText += `\nData collected at: ${new Date().toLocaleString()}\n`;
         summaryText += `Agent status: ${agent.status}\n`;
       }
@@ -351,6 +394,72 @@ export default function DataProcessor() {
             Agent Data
           </Button>
         </div>
+
+        {/* Context-Aware Display Controls */}
+        {parsedData.length > 0 && (
+          <Card className="border-purple-200 bg-purple-50">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-3">
+                <h3 className="font-semibold text-purple-800">🖥️ Display Context</h3>
+                <p className="text-sm text-purple-700">
+                  Choose how to format this data for different environments
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button
+                    variant={displayContext === 'dashboard' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDisplayContext('dashboard');
+                      if (parsedData.length > 0) generateSummary(parsedData);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    🖥️ Dashboard
+                  </Button>
+                  <Button
+                    variant={displayContext === 'mobile' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDisplayContext('mobile');
+                      if (parsedData.length > 0) generateSummary(parsedData);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    📱 Mobile
+                  </Button>
+                  <Button
+                    variant={displayContext === 'meeting' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDisplayContext('meeting');
+                      if (parsedData.length > 0) generateSummary(parsedData);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    🏢 Meeting
+                  </Button>
+                  <Button
+                    variant={displayContext === 'ambient' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDisplayContext('ambient');
+                      if (parsedData.length > 0) generateSummary(parsedData);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    🌐 Ambient
+                  </Button>
+                </div>
+                <div className="text-xs text-purple-600">
+                  {displayContext === 'dashboard' && '• Full detailed analysis with all metrics'}
+                  {displayContext === 'mobile' && '• Condensed view optimized for small screens'}
+                  {displayContext === 'meeting' && '• Key insights formatted for presentations'}
+                  {displayContext === 'ambient' && '• Minimal glanceable information'}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {error && (
           <Alert className="border-red-200 bg-red-50">
@@ -655,15 +764,20 @@ export default function DataProcessor() {
               <CardTitle className="flex items-center gap-2">
                 📊 Data Visualization
                 <Badge variant="outline" className="ml-auto">
-                  {parsedData.length} records processed
+                  {parsedData.length} records • {displayContext} mode
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">🎯 Your data is now visualized!</p>
+                <p className="text-sm text-blue-800 font-medium">
+                  🎯 {displayContext === 'dashboard' && 'Full dashboard view with interactive charts'}
+                  {displayContext === 'mobile' && 'Mobile-optimized compact visualization'}
+                  {displayContext === 'meeting' && 'Presentation-ready charts for meetings'}
+                  {displayContext === 'ambient' && 'Simplified glanceable visualization'}
+                </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  Switch between chart types below. Hover over charts for detailed values. Use the download button above to save results.
+                  Switch between chart types below. Hover over charts for detailed values.
                 </p>
               </div>
               
@@ -686,11 +800,21 @@ export default function DataProcessor() {
                 <TabsContent value="bar">
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">📊 Bar chart showing comparative values</p>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer 
+                      width="100%" 
+                      height={
+                        displayContext === 'mobile' ? 200 :
+                        displayContext === 'ambient' ? 150 :
+                        displayContext === 'meeting' ? 350 : 300
+                      }
+                    >
                       <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
+                        <XAxis 
+                          dataKey="name" 
+                          fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
+                        />
+                        <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
                         <Tooltip />
                         <Bar dataKey="value" fill="#3B82F6" />
                       </BarChart>
@@ -701,16 +825,27 @@ export default function DataProcessor() {
                 <TabsContent value="pie">
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">🥧 Pie chart showing proportional distribution</p>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer 
+                      width="100%" 
+                      height={
+                        displayContext === 'mobile' ? 200 :
+                        displayContext === 'ambient' ? 150 :
+                        displayContext === 'meeting' ? 350 : 300
+                      }
+                    >
                       <RechartsPieChart>
                         <Pie
                           data={chartData}
                           cx="50%"
                           cy="50%"
-                          outerRadius={80}
+                          outerRadius={
+                            displayContext === 'mobile' ? 60 :
+                            displayContext === 'ambient' ? 50 :
+                            displayContext === 'meeting' ? 100 : 80
+                          }
                           fill="#8884d8"
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          label={displayContext !== 'ambient' ? ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%` : false}
                         >
                           {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -725,13 +860,28 @@ export default function DataProcessor() {
                 <TabsContent value="line">
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">📈 Line chart showing trends over sequence</p>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer 
+                      width="100%" 
+                      height={
+                        displayContext === 'mobile' ? 200 :
+                        displayContext === 'ambient' ? 150 :
+                        displayContext === 'meeting' ? 350 : 300
+                      }
+                    >
                       <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
+                        <XAxis 
+                          dataKey="name" 
+                          fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
+                        />
+                        <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="#3B82F6" 
+                          strokeWidth={displayContext === 'meeting' ? 3 : 2} 
+                        />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
