@@ -20,8 +20,8 @@ interface APIAgent {
   headers: Record<string, string>;
   body_template?: string;
   query_params: Record<string, string>;
-  data_path: string; // JSONPath to extract data
-  collection_interval: number; // minutes
+  data_path: string;
+  collection_interval: number;
   status: 'active' | 'inactive' | 'error';
   last_run: string | null;
   next_run: string | null;
@@ -41,36 +41,36 @@ interface APIExecution {
 
 const POPULAR_APIS = [
   {
-    name: 'CoinGecko Crypto Prices',
-    url: 'https://api.coingecko.com/api/v3/simple/price',
-    method: 'GET',
-    params: { ids: 'bitcoin,ethereum', vs_currencies: 'usd' },
-    dataPath: '$',
-    description: 'Real-time cryptocurrency prices'
-  },
-  {
-    name: 'OpenWeatherMap',
-    url: 'https://api.openweathermap.org/data/2.5/weather',
-    method: 'GET',
-    params: { q: 'New York', appid: 'YOUR_API_KEY' },
-    dataPath: '$',
-    description: 'Current weather data'
-  },
-  {
-    name: 'JSONPlaceholder Posts',
-    url: 'https://jsonplaceholder.typicode.com/posts',
+    name: 'HTTPBin UUID',
+    url: 'https://httpbin.org/uuid',
     method: 'GET',
     params: {},
     dataPath: '$',
-    description: 'Sample blog posts data'
+    description: 'Simple UUID generator - always works'
   },
   {
-    name: 'News API Headlines',
-    url: 'https://newsapi.org/v2/top-headlines',
+    name: 'HTTPBin JSON',
+    url: 'https://httpbin.org/json',
     method: 'GET',
-    params: { country: 'us', apiKey: 'YOUR_API_KEY' },
-    dataPath: '$.articles',
-    description: 'Latest news headlines'
+    params: {},
+    dataPath: '$',
+    description: 'Sample JSON data - reliable test API'
+  },
+  {
+    name: 'Cat Facts',
+    url: 'https://catfact.ninja/fact',
+    method: 'GET',
+    params: {},
+    dataPath: '$',
+    description: 'Random cat facts'
+  },
+  {
+    name: 'JSONPlaceholder Users',
+    url: 'https://jsonplaceholder.typicode.com/users',
+    method: 'GET',
+    params: {},
+    dataPath: '$',
+    description: 'Sample user data'
   }
 ];
 
@@ -80,6 +80,7 @@ export default function UniversalAPIAgent() {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Form state for creating new API agent
   const [formData, setFormData] = useState({
@@ -99,11 +100,16 @@ export default function UniversalAPIAgent() {
   }, []);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    if (user) {
-      loadAgents();
-      loadExecutions();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        loadAgents();
+        loadExecutions();
+      }
+    } catch (error) {
+      console.error('Error checking user:', error);
+      setError('Failed to authenticate user');
     }
   };
 
@@ -119,6 +125,7 @@ export default function UniversalAPIAgent() {
       setAgents(data || []);
     } catch (error) {
       console.error('Error loading API agents:', error);
+      setError('Failed to load agents');
     } finally {
       setLoading(false);
     }
@@ -160,15 +167,34 @@ export default function UniversalAPIAgent() {
     });
   };
 
+  const safeJSONParse = (jsonString: string, fallback: any = {}) => {
+    if (!jsonString || jsonString.trim() === '') {
+      return fallback;
+    }
+    
+    try {
+      return JSON.parse(jsonString);
+    } catch (e) {
+      console.warn('Invalid JSON, using fallback:', jsonString);
+      return fallback;
+    }
+  };
+
   const testAPICall = async () => {
-    if (!formData.api_url) return;
+    if (!formData.api_url) {
+      setError('Please enter an API URL');
+      return;
+    }
 
     setTesting('current');
+    setError(null);
+    
     try {
       const response = await executeAPICall(formData);
-      alert(`✅ API Test Successful!\n\nStatus: ${response.status}\nData: ${JSON.stringify(response.data).slice(0, 200)}...`);
+      alert(`✅ API Test Successful!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(response.data).slice(0, 200)}...`);
     } catch (error) {
-      alert(`❌ API Test Failed!\n\nError: ${error.message}`);
+      console.error('API test failed:', error);
+      setError(`API Test Failed: ${error.message}`);
     } finally {
       setTesting(null);
     }
@@ -177,73 +203,93 @@ export default function UniversalAPIAgent() {
   const executeAPICall = async (agentConfig: any): Promise<{status: number, data: any}> => {
     const url = new URL(agentConfig.api_url);
     
-    // Add query parameters
-    let queryParams = {};
-    try {
-      queryParams = JSON.parse(agentConfig.query_params || '{}');
-    } catch (e) {
-      console.warn('Invalid query params JSON');
-    }
-    
+    // Safely parse query parameters
+    const queryParams = safeJSONParse(agentConfig.query_params, {});
     Object.entries(queryParams).forEach(([key, value]) => {
-      url.searchParams.append(key, String(value));
+      if (key && value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
     });
 
-    // Prepare headers
-    let headers = {};
-    try {
-      headers = JSON.parse(agentConfig.headers || '{}');
-    } catch (e) {
-      console.warn('Invalid headers JSON');
-    }
+    // Safely parse headers
+    const customHeaders = safeJSONParse(agentConfig.headers, {});
+    const headers = {
+      'Content-Type': 'application/json',
+      ...customHeaders
+    };
 
     const fetchOptions: RequestInit = {
       method: agentConfig.http_method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      }
+      headers: headers
     };
 
     // Add body for POST/PUT requests
     if (['POST', 'PUT'].includes(agentConfig.http_method) && agentConfig.body_template) {
-      fetchOptions.body = agentConfig.body_template;
+      try {
+        // Validate body template is valid JSON
+        JSON.parse(agentConfig.body_template);
+        fetchOptions.body = agentConfig.body_template;
+      } catch (e) {
+        throw new Error('Invalid JSON in body template');
+      }
     }
 
-    const response = await fetch(url.toString(), fetchOptions);
-    const data = await response.json();
+    console.log('Making API call to:', url.toString());
+    console.log('Fetch options:', fetchOptions);
 
+    const response = await fetch(url.toString(), fetchOptions);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
     return { status: response.status, data };
   };
 
   const createAPIAgent = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('Please sign in to create agents');
+      return;
+    }
+
+    if (!formData.name.trim() || !formData.api_url.trim()) {
+      setError('Please fill in required fields (name and URL)');
+      return;
+    }
+
+    setError(null);
 
     try {
-      // Validate JSON fields
-      JSON.parse(formData.headers || '{}');
-      JSON.parse(formData.query_params || '{}');
+      // Validate JSON fields before saving
+      const headers = safeJSONParse(formData.headers, {});
+      const queryParams = safeJSONParse(formData.query_params, {});
 
       const newAgent = {
-        name: formData.name,
-        description: formData.description,
-        api_url: formData.api_url,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        api_url: formData.api_url.trim(),
         http_method: formData.http_method,
-        headers: JSON.parse(formData.headers || '{}'),
-        body_template: formData.body_template || null,
-        query_params: JSON.parse(formData.query_params || '{}'),
-        data_path: formData.data_path,
-        collection_interval: formData.collection_interval,
+        headers: headers,
+        body_template: formData.body_template.trim() || null,
+        query_params: queryParams,
+        data_path: formData.data_path.trim() || '$',
+        collection_interval: Math.max(1, formData.collection_interval),
         status: 'active',
         user_id: user.id,
         next_run: new Date(Date.now() + formData.collection_interval * 60000).toISOString()
       };
 
+      console.log('Creating agent:', newAgent);
+
       const { error } = await supabase
         .from('api_agents')
         .insert([newAgent]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       // Reset form
       setFormData({
@@ -258,36 +304,45 @@ export default function UniversalAPIAgent() {
         collection_interval: 60
       });
 
-      loadAgents();
+      await loadAgents();
       alert('✅ API Agent created successfully!');
     } catch (error) {
       console.error('Error creating API agent:', error);
-      alert(`❌ Error creating agent: ${error.message}`);
+      setError(`Failed to create agent: ${error.message}`);
     }
   };
 
   const runAgentNow = async (agent: APIAgent) => {
     setTesting(agent.id);
+    setError(null);
     const startTime = Date.now();
 
     try {
+      console.log('Executing agent:', agent.name);
       const response = await executeAPICall(agent);
       const responseTime = Date.now() - startTime;
 
-      // Extract data using data_path (simplified JSONPath)
+      // Extract data using data_path
       let extractedData = response.data;
       if (agent.data_path && agent.data_path !== '$') {
-        // Simple dot notation support
-        const path = agent.data_path.replace('$.', '').split('.');
-        for (const key of path) {
-          if (key && extractedData && typeof extractedData === 'object') {
-            extractedData = extractedData[key];
+        try {
+          // Simple JSONPath implementation
+          const path = agent.data_path.replace('$.', '').split('.');
+          for (const key of path) {
+            if (key && extractedData && typeof extractedData === 'object') {
+              extractedData = extractedData[key];
+            }
           }
+        } catch (e) {
+          console.warn('Data path extraction failed, using full response');
+          extractedData = response.data;
         }
       }
 
+      console.log('Extracted data:', extractedData);
+
       // Save execution result
-      await supabase.from('api_executions').insert([{
+      const { error: execError } = await supabase.from('api_executions').insert([{
         agent_id: agent.id,
         status: 'success',
         response_data: extractedData,
@@ -295,8 +350,12 @@ export default function UniversalAPIAgent() {
         executed_at: new Date().toISOString()
       }]);
 
+      if (execError) {
+        console.error('Failed to save execution:', execError);
+      }
+
       // Save to agent_data table for integration with data processor
-      await supabase.from('agent_data').insert([{
+      const { error: dataError } = await supabase.from('agent_data').insert([{
         agent_id: agent.id,
         user_id: user.id,
         processed_data: extractedData,
@@ -305,20 +364,30 @@ export default function UniversalAPIAgent() {
         collected_at: new Date().toISOString()
       }]);
 
-      loadExecutions();
+      if (dataError) {
+        console.error('Failed to save agent data:', dataError);
+        throw dataError;
+      }
+
+      await loadExecutions();
       alert(`✅ Agent executed successfully!\n\nResponse time: ${responseTime}ms\nData collected: ${JSON.stringify(extractedData).slice(0, 100)}...`);
     } catch (error) {
-      // Save error execution
-      await supabase.from('api_executions').insert([{
-        agent_id: agent.id,
-        status: 'error',
-        error_message: error.message,
-        response_time_ms: Date.now() - startTime,
-        executed_at: new Date().toISOString()
-      }]);
-
       console.error('Error executing agent:', error);
-      alert(`❌ Agent execution failed: ${error.message}`);
+      
+      // Save error execution
+      try {
+        await supabase.from('api_executions').insert([{
+          agent_id: agent.id,
+          status: 'error',
+          error_message: error.message,
+          response_time_ms: Date.now() - startTime,
+          executed_at: new Date().toISOString()
+        }]);
+      } catch (saveError) {
+        console.error('Failed to save error execution:', saveError);
+      }
+
+      setError(`Agent execution failed: ${error.message}`);
     } finally {
       setTesting(null);
     }
@@ -334,9 +403,10 @@ export default function UniversalAPIAgent() {
         .eq('id', agent.id);
 
       if (error) throw error;
-      loadAgents();
+      await loadAgents();
     } catch (error) {
       console.error('Error updating agent status:', error);
+      setError('Failed to update agent status');
     }
   };
 
@@ -350,9 +420,10 @@ export default function UniversalAPIAgent() {
         .eq('id', agent.id);
 
       if (error) throw error;
-      loadAgents();
+      await loadAgents();
     } catch (error) {
       console.error('Error deleting agent:', error);
+      setError('Failed to delete agent');
     }
   };
 
@@ -374,6 +445,22 @@ export default function UniversalAPIAgent() {
         <h1 className="text-3xl font-bold text-blue-600">Universal API Agent System</h1>
         <p className="text-gray-600">Connect any API as a data source and collect real-time information</p>
       </div>
+
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
+            ❌ {error}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setError(null)}
+              className="ml-2 text-red-800 hover:text-red-900"
+            >
+              ✕
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="create" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
@@ -464,18 +551,20 @@ export default function UniversalAPIAgent() {
                     <Textarea
                       value={formData.query_params}
                       onChange={(e) => handleInputChange('query_params', e.target.value)}
-                      placeholder='{"key": "value", "limit": 10}'
+                      placeholder='{}'
                       rows={3}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Use {} for no parameters</p>
                   </div>
                   <div>
                     <Label>Headers (JSON)</Label>
                     <Textarea
                       value={formData.headers}
                       onChange={(e) => handleInputChange('headers', e.target.value)}
-                      placeholder='{"Authorization": "Bearer token"}'
+                      placeholder='{}'
                       rows={3}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Use {} for default headers</p>
                   </div>
                 </div>
 
@@ -497,10 +586,10 @@ export default function UniversalAPIAgent() {
                     <Input
                       value={formData.data_path}
                       onChange={(e) => handleInputChange('data_path', e.target.value)}
-                      placeholder="$ or $.data.items"
+                      placeholder="$"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Path to extract specific data from response
+                      Use $ for full response, $.data for nested data
                     </p>
                   </div>
                   <div>
@@ -508,7 +597,7 @@ export default function UniversalAPIAgent() {
                     <Input
                       type="number"
                       value={formData.collection_interval}
-                      onChange={(e) => handleInputChange('collection_interval', parseInt(e.target.value))}
+                      onChange={(e) => handleInputChange('collection_interval', parseInt(e.target.value) || 60)}
                       min="1"
                     />
                   </div>
