@@ -362,6 +362,18 @@ export default function DataProcessor() {
 
         {dataSource === 'agent' && user && (
           <div className="space-y-4">
+            {/* Quick Start Guide for Agent Data */}
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-2">
+                  <h3 className="font-semibold text-green-800">🤖 Agent Data Processing</h3>
+                  <p className="text-sm text-green-700">
+                    1. Select an agent → 2. Choose data to analyze → 3. Click "Analyze & Visualize" → 4. Get AI insights + charts
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -435,40 +447,69 @@ export default function DataProcessor() {
                         </AlertDescription>
                       </Alert>
                     ) : (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {agentData.map((dataItem) => (
-                          <div key={dataItem.id} className="border rounded-lg p-3 bg-white">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="text-sm text-gray-600">
-                                  {new Date(dataItem.collected_at).toLocaleString()}
-                                </div>
-                                <div className="text-sm mt-1">
-                                  <Badge variant={dataItem.status === 'success' ? 'default' : 'destructive'}>
-                                    {dataItem.status}
-                                  </Badge>
-                                  <span className="ml-2">
-                                    Size: {JSON.stringify(dataItem.processed_data).length} bytes
-                                  </span>
+                      <div className="space-y-3">
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <p className="text-sm text-blue-800 font-medium">📋 How to use:</p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            Click "Analyze & Visualize" on any data item below to generate text summary, voice output, and interactive charts
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                          {agentData.map((dataItem) => (
+                            <div key={dataItem.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant={dataItem.status === 'success' ? 'default' : 'destructive'}>
+                                      {dataItem.status}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(dataItem.collected_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    Data size: {JSON.stringify(dataItem.processed_data).length} bytes
+                                  </div>
+                                  
+                                  {/* Quick data preview */}
+                                  <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                                    <strong>Preview:</strong> {JSON.stringify(dataItem.processed_data).slice(0, 100)}...
+                                  </div>
                                 </div>
                               </div>
-                              <Button
-                                size="sm"
-                                onClick={() => processAgentData(dataItem)}
-                              >
-                                Process
-                              </Button>
+                              
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => processAgentData(dataItem)}
+                                  className="flex-1"
+                                >
+                                  🔍 Analyze & Visualize
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setJsonData(JSON.stringify(dataItem.processed_data, null, 2));
+                                    setDataSource('manual');
+                                  }}
+                                >
+                                  📝 Edit
+                                </Button>
+                              </div>
+                              
+                              <details className="mt-3">
+                                <summary className="cursor-pointer text-sm text-blue-600 hover:underline">
+                                  👁️ View Complete Raw Data
+                                </summary>
+                                <pre className="text-xs bg-gray-50 p-3 rounded mt-2 overflow-auto max-h-40 border">
+                                  {JSON.stringify(dataItem.processed_data, null, 2)}
+                                </pre>
+                              </details>
                             </div>
-                            <details className="mt-2">
-                              <summary className="cursor-pointer text-sm text-blue-600 hover:underline">
-                                View Raw Data
-                              </summary>
-                              <pre className="text-xs bg-gray-50 p-2 rounded mt-1 overflow-auto max-h-32">
-                                {JSON.stringify(dataItem.processed_data, null, 2)}
-                              </pre>
-                            </details>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -611,9 +652,21 @@ export default function DataProcessor() {
         {parsedData.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Data Visualization</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                📊 Data Visualization
+                <Badge variant="outline" className="ml-auto">
+                  {parsedData.length} records processed
+                </Badge>
+              </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium">🎯 Your data is now visualized!</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Switch between chart types below. Hover over charts for detailed values. Use the download button above to save results.
+                </p>
+              </div>
+              
               <Tabs defaultValue="bar" className="space-y-4">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="bar" className="flex items-center gap-2">
@@ -631,50 +684,66 @@ export default function DataProcessor() {
                 </TabsList>
 
                 <TabsContent value="bar">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#3B82F6" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">📊 Bar chart showing comparative values</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#3B82F6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="pie">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">🥧 Pie chart showing proportional distribution</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <RechartsPieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="line">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">📈 Line chart showing trends over sequence</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </TabsContent>
               </Tabs>
+              
+              {chartData.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <p className="text-gray-500">📈 No numeric data found for charting</p>
+                  <p className="text-xs text-gray-400 mt-1">Charts require numeric values in your data</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
