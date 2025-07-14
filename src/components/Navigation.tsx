@@ -1,60 +1,74 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Home, BarChart3, Bot } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const Navigation = () => {
   const location = useLocation();
-  
-  const isActive = (path: string) => location.pathname === path;
-  
+
+  const navItems = [
+    {
+      to: '/',
+      label: '🏠 Dashboard',
+      icon: '🏠'
+    },
+    {
+      to: '/data-processor',
+      label: '📊 Data Processor',
+      icon: '📊'
+    },
+    {
+      to: '/agents',
+      label: '🤖 Agents',
+      icon: '🤖'
+    },
+    {
+      to: '/api-agents',
+      label: '🔗 API Agents',
+      icon: '🔗'
+    }
+  ];
+
   return (
-    <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">UDP</span>
-            </div>
-            <span className="font-bold text-gray-800">Universal Data Platform</span>
-          </Link>
-          
-          <div className="flex items-center space-x-2">
-            <Link to="/">
-              <Button 
-                variant={isActive('/') ? 'default' : 'ghost'}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Home className="w-4 h-4" />
-                Dashboard
-              </Button>
-            </Link>
-            
-            <Link to="/data-processor">
-              <Button 
-                variant={isActive('/data-processor') ? 'default' : 'ghost'}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Data Processor
-              </Button>
-            </Link>
-            
-            <Link to="/agents">
-              <Button 
-                variant={isActive('/agents') ? 'default' : 'ghost'}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Bot className="w-4 h-4" />
-                Agents
-              </Button>
-            </Link>
-          </div>
+    <nav className="flex items-center space-x-1">
+      {/* Logo/Brand */}
+      <Link 
+        to="/" 
+        className="flex items-center space-x-2 mr-6 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+      >
+        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-sm">UDP</span>
         </div>
+        <span className="font-semibold text-gray-900 hidden sm:block">Universal Data Platform</span>
+      </Link>
+
+      {/* Navigation Links */}
+      <div className="flex items-center space-x-1">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.to;
+          
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                isActive
+                  ? "bg-blue-100 text-blue-700 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              )}
+            >
+              <span className="text-base">{item.icon}</span>
+              <span className="hidden sm:block">{item.label.split(' ').slice(1).join(' ')}</span>
+              <span className="sm:hidden">{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Status Indicator (Optional) */}
+      <div className="ml-4 flex items-center space-x-2">
+        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        <span className="text-xs text-gray-500 hidden md:block">Platform Online</span>
       </div>
     </nav>
   );
