@@ -1054,7 +1054,8 @@ const QueryInterface = ({ user }: { user: any }) => {
 
     // Group data by agent
     const grouped = data.reduce((acc: any, record: any) => {
-      const name = record.agents?.name;
+      const agent = intent.agents.find((a: any) => a.id === record.agent_id);
+      const name = agent?.name;
       if (name) {
         if (!acc[name]) acc[name] = [];
         acc[name].push(record.processed_data);
@@ -1202,6 +1203,23 @@ const QueryInterface = ({ user }: { user: any }) => {
         findValuesByKeyword(value, keyword, results, currentPath);
       }
     });
+  };
+
+  const findValueByKeyword = (obj: any, keyword: string): any => {
+    if (typeof obj !== 'object' || obj === null) return null;
+    
+    for (const [key, value] of Object.entries(obj)) {
+      if (key.toLowerCase().includes(keyword.toLowerCase())) {
+        return value;
+      }
+      
+      if (typeof value === 'object' && value !== null) {
+        const found = findValueByKeyword(value, keyword);
+        if (found !== null) return found;
+      }
+    }
+    
+    return null;
   };
 
   const extractAllNumericValues = (obj: any, results: any, path = '') => {
