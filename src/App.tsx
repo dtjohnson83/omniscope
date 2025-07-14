@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { supabase } from './lib/supabase';
@@ -8,6 +7,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
 import DataProcessor from './components/DataProcessor';
 import AgentRegistrationSystem from './components/AgentRegistrationSystem';
+import UniversalAPIAgent from './components/UniversalAPIAgent';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -26,6 +26,7 @@ function App() {
         setLoading(false);
       }
     };
+
     fetchSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -96,6 +97,8 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
             <Route path="/agents" element={<AgentRegistrationSystem />} />
+            <Route path="/agent-registration" element={<AgentRegistrationSystem />} />
+            <Route path="/api-agents" element={<UniversalAPIAgent />} />
             <Route path="*" element={
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">404 - Page Not Found</h2>
