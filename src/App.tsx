@@ -1,11 +1,13 @@
+
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
-import Dashboard from './pages/Dashboard'; // Actual location: src/pages/Dashboard.tsx
-import DataProcessor from './components/DataProcessor'; // Actual location: src/components/DataProcessor.tsx
-import AgentRegistrationSystem from './components/AgentRegistrationSystem'; // Actual location: src/components/AgentRegistrationSystem.tsx
+import Navigation from './components/Navigation';
+import Dashboard from './pages/Dashboard';
+import DataProcessor from './components/DataProcessor';
+import AgentRegistrationSystem from './components/AgentRegistrationSystem';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -18,7 +20,8 @@ function App() {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
       } catch (err) {
-        setError('Auth error: ' + err.message);
+        console.error('Auth error:', err);
+        setError('Authentication error occurred');
       } finally {
         setLoading(false);
       }
@@ -27,6 +30,7 @@ function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setError(null);
     });
 
     return () => listener.subscription.unsubscribe();
@@ -37,38 +41,67 @@ function App() {
       await supabase.auth.signOut();
       setUser(null);
     } catch (err) {
-      setError('Logout error: ' + err.message);
+      console.error('Logout error:', err);
+      setError('Failed to sign out');
     }
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-red-500 text-center">
+          <p className="text-lg font-semibold">Error</p>
+          <p>{error}</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
-    return <AuthForm onAuthSuccess={() => supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))} />;
+    return <AuthForm onAuthSuccess={() => window.location.reload()} />;
   }
 
   return (
     <Router>
-      <div className="min-h-screen bg-white">
-        <nav className="flex justify-between items-center p-4 bg-blue-50 border-b">
-          <h1 className="text-xl font-bold text-blue-800">Universal Data Platform</h1>
-          <div className="space-x-4">
-            <a href="/" className="text-blue-600 hover:underline">Dashboard</a>
-            <a href="/data-processor" className="text-blue-600 hover:underline">Data Processor</a>
-            <a href="/agents" className="text-blue-600 hover:underline">Agents</a>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex justify-between items-center h-16">
+              <Navigation />
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
+                  👤 {user.email}
+                </span>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  Sign Out
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <span>👤 {user.email}</span>
-            <Button variant="outline" onClick={handleLogout}>Sign Out</Button>
-          </div>
-        </nav>
-        <main className="p-4">
+        </header>
+        
+        <main className="max-w-6xl mx-auto p-4">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
             <Route path="/agents" element={<AgentRegistrationSystem />} />
-            <Route path="*" element={<div className="text-center text-red-500">404 - Page Not Found</div>} />
+            <Route path="*" element={
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">404 - Page Not Found</h2>
+                <p className="text-gray-600">The page you're looking for doesn't exist.</p>
+              </div>
+            } />
           </Routes>
         </main>
       </div>

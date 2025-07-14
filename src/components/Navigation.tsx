@@ -43,9 +43,9 @@ const Navigation = () => {
               </Button>
             </Link>
             
-            <Link to="/agent-registration">
+            <Link to="/agents">
               <Button 
-                variant={isActive('/agent-registration') ? 'default' : 'ghost'}
+                variant={isActive('/agents') ? 'default' : 'ghost'}
                 size="sm"
                 className="flex items-center gap-2"
               >
