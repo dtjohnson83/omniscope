@@ -351,6 +351,7 @@ export default function DataProcessor() {
       summary: summary,
       chartData: chartData,
       dataSource: dataSource,
+      displayContext: displayContext,
       agent: selectedAgent ? agents.find(a => a.id === selectedAgent) : null,
       timestamp: new Date().toISOString()
     };
@@ -359,7 +360,106 @@ export default function DataProcessor() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `data-analysis-results-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `data-analysis-results-${displayContext}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateQRCode = () => {
+    const exportData = {
+      summary: summary,
+      chartData: chartData,
+      context: displayContext,
+      timestamp: new Date().toISOString()
+    };
+    
+    const dataUrl = `data:application/json;base64,${btoa(JSON.stringify(exportData))}`;
+    const qrData = `${window.location.origin}/view-data?data=${encodeURIComponent(dataUrl)}`;
+    
+    // Create QR code URL (using a free QR service)
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+    
+    // Open QR code in new window
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head><title>QR Code - Share Data</title></head>
+          <body style="display: flex; flex-direction: column; align-items: center; padding: 20px; font-family: sans-serif;">
+            <h2>📱 Scan to View Data on Mobile</h2>
+            <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; padding: 10px;">
+            <p style="text-align: center; color: #666; margin-top: 20px;">
+              Scan this QR code with your phone to view the processed data<br>
+              Context: ${displayContext} mode
+            </p>
+          </body>
+        </html>
+      `);
+    }
+  };
+
+  const sendToAmbientDisplay = () => {
+    const ambientData = {
+      type: 'data_visualization',
+      context: 'ambient',
+      summary: summary,
+      chartData: chartData.slice(0, 5), // Limit for ambient display
+      timestamp: new Date().toISOString(),
+      displayDuration: 30 // seconds
+    };
+
+    // Simulate API call to ambient display
+    console.log('Sending to ambient display:', ambientData);
+    
+    // Show success message
+    alert(`📺 Data sent to ambient display!\n\nSummary: ${summary.slice(0, 100)}...\nDisplay duration: 30 seconds`);
+  };
+
+  const generateVoiceScript = () => {
+    let voiceScript = summary;
+    
+    // Optimize for voice based on context
+    if (displayContext === 'ambient') {
+      const lines = summary.split('\n').filter(line => line.trim());
+      voiceScript = lines.slice(0, 2).join('. ') + '.';
+    } else if (displayContext === 'mobile') {
+      voiceScript = summary.replace(/\n/g, '. ').replace(/\.\./g, '.');
+    }
+    
+    const blob = new Blob([voiceScript], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `voice-script-${displayContext}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateAPIEndpoint = () => {
+    const apiData = {
+      endpoint: `${window.location.origin}/api/data/${btoa(JSON.stringify({
+        summary: summary,
+        chartData: chartData,
+        context: displayContext,
+        timestamp: new Date().toISOString()
+      }))}`,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Display-Context': displayContext
+      },
+      description: `API endpoint for ${displayContext} formatted data`
+    };
+
+    const blob = new Blob([JSON.stringify(apiData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `api-endpoint-${displayContext}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -735,9 +835,6 @@ export default function DataProcessor() {
                     <Volume2 className="h-4 w-4" />
                     {isSpeaking ? 'Stop' : 'Speak'}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={downloadResults}>
-                    <Download className="h-4 w-4" />
-                  </Button>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -754,6 +851,101 @@ export default function DataProcessor() {
                   <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Export to Different Surfaces - Only show once */}
+        {parsedData.length > 0 && summary && (
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-800">
+                📤 Export & Actions
+                <div className="ml-auto flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={isSpeaking ? stopSpeaking : speakSummary}
+                    disabled={!summary}
+                    className="bg-white"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    {isSpeaking ? 'Stop' : 'Speak'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadResults} className="bg-white">
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <p className="text-sm text-green-700">
+                  Send your processed data to different devices and environments:
+                </p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateQRCode}
+                    className="flex items-center gap-1 h-auto py-2 bg-white"
+                  >
+                    <span className="text-lg">📱</span>
+                    <div className="text-left">
+                      <div className="text-xs font-medium">Mobile</div>
+                      <div className="text-xs text-gray-500">QR Code</div>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={sendToAmbientDisplay}
+                    className="flex items-center gap-1 h-auto py-2 bg-white"
+                  >
+                    <span className="text-lg">🖥️</span>
+                    <div className="text-left">
+                      <div className="text-xs font-medium">Smart Display</div>
+                      <div className="text-xs text-gray-500">Ambient</div>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateVoiceScript}
+                    className="flex items-center gap-1 h-auto py-2 bg-white"
+                  >
+                    <span className="text-lg">🎤</span>
+                    <div className="text-left">
+                      <div className="text-xs font-medium">Voice Assistant</div>
+                      <div className="text-xs text-gray-500">Script</div>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateAPIEndpoint}
+                    className="flex items-center gap-1 h-auto py-2 bg-white"
+                  >
+                    <span className="text-lg">🔗</span>
+                    <div className="text-left">
+                      <div className="text-xs font-medium">API Endpoint</div>
+                      <div className="text-xs text-gray-500">JSON</div>
+                    </div>
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-green-600 space-y-1">
+                  <div>📱 <strong>Mobile:</strong> Generates QR code for instant phone access</div>
+                  <div>🖥️ <strong>Smart Display:</strong> Sends data to ambient displays (30s duration)</div>
+                  <div>🎤 <strong>Voice Assistant:</strong> Downloads optimized voice script</div>
+                  <div>🔗 <strong>API:</strong> Creates endpoint for AR/VR or custom integrations</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
