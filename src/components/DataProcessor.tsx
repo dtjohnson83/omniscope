@@ -11,59 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 
 interface DataItem {
   [key: string]: any;
 }
-
-interface ChartData {
-  name: string;
-  value: number;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  data_types: string[];
-  status: string;
-  webhook_url: string;
-  category: string;
-  description: string;
-}
-
-interface AgentData {
-  id: string;
-  agent_id: string;
-  processed_data: any;
-  collected_at: string;
-  status: string;
-  agents: Agent;
-}
-
-const sampleData = [
-  { name: 'Jan', value: 400, sales: 240, profit: 160 },
-  { name: 'Feb', value: 300, sales: 456, profit: 180 },
-  { name: 'Mar', value: 200, sales: 320, profit: 120 },
-  { name: 'Apr', value: 278, sales: 280, profit: 200 },
-  { name: 'May', value: 189, sales: 190, profit: 140 },
-];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
-export default function DataProcessor() {
 
 interface ChartData {
   name: string;
@@ -516,265 +467,278 @@ export default function DataProcessor() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-blue-600">Universal Data Processor</h1>
-          <p className="text-gray-600">Process data from your agents or upload/analyze your own data with AI-powered insights</p>
-        </div>
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold text-blue-600">Universal Data Processor</h1>
+        <p className="text-gray-600">Process data from your agents or upload/analyze your own data with AI-powered insights</p>
+      </div>
 
-        {/* Data Source Selection */}
-        <div className="flex justify-center space-x-4">
-          <Button
-            variant={dataSource === 'manual' ? 'default' : 'outline'}
-            onClick={() => setDataSource('manual')}
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Manual Data
-          </Button>
-          <Button
-            variant={dataSource === 'agent' ? 'default' : 'outline'}
-            onClick={() => setDataSource('agent')}
-            className="flex items-center gap-2"
-          >
-            <Wifi className="h-4 w-4" />
-            Agent Data
-          </Button>
-        </div>
+      {/* Data Source Selection */}
+      <div className="flex justify-center space-x-4">
+        <Button
+          variant={dataSource === 'manual' ? 'default' : 'outline'}
+          onClick={() => setDataSource('manual')}
+          className="flex items-center gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          Manual Data
+        </Button>
+        <Button
+          variant={dataSource === 'agent' ? 'default' : 'outline'}
+          onClick={() => setDataSource('agent')}
+          className="flex items-center gap-2"
+        >
+          <Wifi className="h-4 w-4" />
+          Agent Data
+        </Button>
+      </div>
 
-        {/* Context-Aware Display Controls */}
-        {parsedData.length > 0 && (
-          <Card className="border-purple-200 bg-purple-50">
+      {/* Context-Aware Display Controls */}
+      {parsedData.length > 0 && (
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-3">
+              <h3 className="font-semibold text-purple-800">🖥️ Display Context</h3>
+              <p className="text-sm text-purple-700">
+                Choose how to format this data for different environments
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  variant={displayContext === 'dashboard' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setDisplayContext('dashboard');
+                    if (parsedData.length > 0) generateSummary(parsedData);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  🖥️ Dashboard
+                </Button>
+                <Button
+                  variant={displayContext === 'mobile' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setDisplayContext('mobile');
+                    if (parsedData.length > 0) generateSummary(parsedData);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  📱 Mobile
+                </Button>
+                <Button
+                  variant={displayContext === 'meeting' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setDisplayContext('meeting');
+                    if (parsedData.length > 0) generateSummary(parsedData);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  🏢 Meeting
+                </Button>
+                <Button
+                  variant={displayContext === 'ambient' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setDisplayContext('ambient');
+                    if (parsedData.length > 0) generateSummary(parsedData);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  🌐 Ambient
+                </Button>
+              </div>
+              <div className="text-xs text-purple-600">
+                {displayContext === 'dashboard' && '• Full detailed analysis with all metrics'}
+                {displayContext === 'mobile' && '• Condensed view optimized for small screens'}
+                {displayContext === 'meeting' && '• Key insights formatted for presentations'}
+                {displayContext === 'ambient' && '• Minimal glanceable information'}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
+            ❌ {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {dataSource === 'agent' && user && (
+        <div className="space-y-4">
+          {/* Quick Start Guide for Agent Data */}
+          <Card className="border-green-200 bg-green-50">
             <CardContent className="pt-6">
-              <div className="text-center space-y-3">
-                <h3 className="font-semibold text-purple-800">🖥️ Display Context</h3>
-                <p className="text-sm text-purple-700">
-                  Choose how to format this data for different environments
+              <div className="text-center space-y-2">
+                <h3 className="font-semibold text-green-800">🤖 Agent Data Processing</h3>
+                <p className="text-sm text-green-700">
+                  1. Select an agent → 2. Choose data to analyze → 3. Click "Analyze & Visualize" → 4. Get AI insights + charts
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button
-                    variant={displayContext === 'dashboard' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setDisplayContext('dashboard');
-                      if (parsedData.length > 0) generateSummary(parsedData);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    🖥️ Dashboard
-                  </Button>
-                  <Button
-                    variant={displayContext === 'mobile' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setDisplayContext('mobile');
-                      if (parsedData.length > 0) generateSummary(parsedData);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    📱 Mobile
-                  </Button>
-                  <Button
-                    variant={displayContext === 'meeting' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setDisplayContext('meeting');
-                      if (parsedData.length > 0) generateSummary(parsedData);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    🏢 Meeting
-                  </Button>
-                  <Button
-                    variant={displayContext === 'ambient' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setDisplayContext('ambient');
-                      if (parsedData.length > 0) generateSummary(parsedData);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    🌐 Ambient
-                  </Button>
-                </div>
-                <div className="text-xs text-purple-600">
-                  {displayContext === 'dashboard' && '• Full detailed analysis with all metrics'}
-                  {displayContext === 'mobile' && '• Condensed view optimized for small screens'}
-                  {displayContext === 'meeting' && '• Key insights formatted for presentations'}
-                  {displayContext === 'ambient' && '• Minimal glanceable information'}
-                </div>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {error && (
-          <Alert className="border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">
-              ❌ {error}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {dataSource === 'agent' && user && (
-          <div className="space-y-4">
-            {/* Quick Start Guide for Agent Data */}
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-2">
-                  <h3 className="font-semibold text-green-800">🤖 Agent Data Processing</h3>
-                  <p className="text-sm text-green-700">
-                    1. Select an agent → 2. Choose data to analyze → 3. Click "Analyze & Visualize" → 4. Get AI insights + charts
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wifi className="h-5 w-5" />
-                  Select Agent Data Source
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadAgents}
-                    disabled={loadingAgents}
-                    className="ml-auto"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${loadingAgents ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Choose Agent</Label>
-                  <Select value={selectedAgent} onValueChange={handleAgentSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an agent to process data from" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{agent.category}</Badge>
-                            {agent.name} - {agent.data_types.join(', ')}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {agents.length === 0 && !loadingAgents && (
-                  <Alert>
-                    <WifiOff className="h-4 w-4" />
-                    <AlertDescription>
-                      No active agents found. Please register and activate agents first.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {selectedAgent && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Recent Data from Agent</Label>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadAgentData(selectedAgent)}
-                        disabled={loadingAgentData}
-                      >
-                        <RefreshCw className={`h-4 w-4 ${loadingAgentData ? 'animate-spin' : ''}`} />
-                        Refresh
-                      </Button>
-                    </div>
-                    
-                    {loadingAgentData ? (
-                      <div className="text-center py-4">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="text-sm text-gray-600 mt-2">Loading agent data...</p>
-                      </div>
-                    ) : agentData.length === 0 ? (
-                      <Alert>
-                        <AlertDescription>
-                          No data available from this agent yet.
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <p className="text-sm text-blue-800 font-medium">📋 How to use:</p>
-                          <p className="text-xs text-blue-700 mt-1">
-                            Click "Analyze & Visualize" on any data item below to generate text summary, voice output, and interactive charts
-                          </p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wifi className="h-5 w-5" />
+                Select Agent Data Source
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadAgents}
+                  disabled={loadingAgents}
+                  className="ml-auto"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingAgents ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Choose Agent</Label>
+                <Select value={selectedAgent} onValueChange={handleAgentSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an agent to process data from" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {agents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{agent.category}</Badge>
+                          {agent.name} - {agent.data_types.join(', ')}
                         </div>
-                        
-                        <div className="space-y-3 max-h-60 overflow-y-auto">
-                          {agentData.map((dataItem) => (
-                            <div key={dataItem.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-                              <div className="flex justify-between items-start mb-3">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Badge variant={dataItem.status === 'success' ? 'default' : 'destructive'}>
-                                      {dataItem.status}
-                                    </Badge>
-                                    <span className="text-xs text-gray-500">
-                                      {new Date(dataItem.collected_at).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-gray-600">
-                                    Data size: {JSON.stringify(dataItem.processed_data).length} bytes
-                                  </div>
-                                  
-                                  {/* Quick data preview */}
-                                  <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
-                                    <strong>Preview:</strong> {JSON.stringify(dataItem.processed_data).slice(0, 100)}...
-                                  </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {agents.length === 0 && !loadingAgents && (
+                <Alert>
+                  <WifiOff className="h-4 w-4" />
+                  <AlertDescription>
+                    No active agents found. Please register and activate agents first.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {selectedAgent && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Recent Data from Agent</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadAgentData(selectedAgent)}
+                      disabled={loadingAgentData}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingAgentData ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
+                  
+                  {loadingAgentData ? (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-sm text-gray-600 mt-2">Loading agent data...</p>
+                    </div>
+                  ) : agentData.length === 0 ? (
+                    <Alert>
+                      <AlertDescription>
+                        No data available from this agent yet.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-sm text-blue-800 font-medium">📋 How to use:</p>
+                        <p className="text-xs text-blue-700 mt-1">
+                          Click "Analyze & Visualize" on any data item below to generate text summary, voice output, and interactive charts
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {agentData.map((dataItem) => (
+                          <div key={dataItem.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant={dataItem.status === 'success' ? 'default' : 'destructive'}>
+                                    {dataItem.status}
+                                  </Badge>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(dataItem.collected_at).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Data size: {JSON.stringify(dataItem.processed_data).length} bytes
+                                </div>
+                                
+                                {/* Quick data preview */}
+                                <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                                  <strong>Preview:</strong> {JSON.stringify(dataItem.processed_data).slice(0, 100)}...
                                 </div>
                               </div>
-                              
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => processAgentData(dataItem)}
-                                  className="flex-1"
-                                >
-                                  🔍 Analyze & Visualize
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setJsonData(JSON.stringify(dataItem.processed_data, null, 2));
-                                    setDataSource('manual');
-                                  }}
-                                >
-                                  📝 Edit
-                                </Button>
-                              </div>
-                              
-                              <details className="mt-3">
-                                <summary className="cursor-pointer text-sm text-blue-600 hover:underline">
-                                  👁️ View Complete Raw Data
-                                </summary>
-                                <pre className="text-xs bg-gray-50 p-3 rounded mt-2 overflow-auto max-h-40 border">
-                                  {JSON.stringify(dataItem.processed_data, null, 2)}
-                                </pre>
-                              </details>
                             </div>
-                          ))}
-                        </div>
+                            
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => processAgentData(dataItem)}
+                                className="flex-1"
+                              >
+                                🔍 Analyze & Visualize
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setJsonData(JSON.stringify(dataItem.processed_data, null, 2));
+                                  setDataSource('manual');
+                                }}
+                              >
+                                📝 Edit
+                              </Button>
+                            </div>
+                            
+                            <details className="mt-3">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:underline">
+                                👁️ View Complete Raw Data
+                              </summary>
+                              <pre className="text-xs bg-gray-50 p-3 rounded mt-2 overflow-auto max-h-40 border">
+                                {JSON.stringify(dataItem.processed_data, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-        {dataSource === 'manual' && (
+      {dataSource === 'manual' && (
+        <div className="space-y-6">
+          {/* Quick Start Guide */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-2">
+                <h3 className="font-semibold text-blue-800">🚀 Quick Start Guide</h3>
+                <p className="text-sm text-blue-700">
+                  1. Upload a JSON file OR paste JSON data below → 2. Click "Process Data" → 3. Get AI summary, voice output & charts
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -784,15 +748,6 @@ export default function DataProcessor() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Upload JSON File</Label>
-                  <Input
-                    type="file"
-                    accept=".json"
-                    onChange={handleFileUpload}
-                    className="cursor-pointer"
-                  />
-                </div>
                 
                 <div className="text-center">
                   <span className="text-sm text-gray-500">or</span>
@@ -809,13 +764,21 @@ export default function DataProcessor() {
                 </div>
                 
                 <div className="flex gap-2">
-                  <Button onClick={handleJsonInput} className="flex-1">
-                    Process Data
+                  <Button onClick={handleJsonInput} className="flex-1" disabled={!jsonData.trim()}>
+                    🔍 Process Data
                   </Button>
                   <Button variant="outline" onClick={loadSampleData}>
-                    Load Sample
+                    📊 Load Sample
                   </Button>
                 </div>
+                
+                {jsonData && !parsedData.length && (
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      💡 Data entered! Click "Process Data" to analyze and visualize it.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -824,22 +787,6 @@ export default function DataProcessor() {
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   AI Summary
-                  {summary && (
-                    <div className="ml-auto flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={isSpeaking ? stopSpeaking : speakSummary}
-                        disabled={!summary}
-                      >
-                        <Volume2 className="h-4 w-4" />
-                        {isSpeaking ? 'Stop' : 'Speak'}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={downloadResults}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -851,298 +798,316 @@ export default function DataProcessor() {
                     </div>
                   </div>
                 ) : summary ? (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
+                  <div className="space-y-3">
+                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                      <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
+                        ✅ Analysis Complete!
+                      </div>
+                      <p className="text-xs text-green-700 mt-1">
+                        Your data has been processed. Use the actions below to interact with your results.
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">
-                    {dataSource === 'manual' ? 'Upload or paste data to see AI-generated summary' : 'Select an agent and process data to see AI-generated summary'}
-                  </p>
+                  <div className="text-center py-8">
+                    <div className="space-y-3">
+                      <div className="text-4xl">📊</div>
+                      <p className="text-gray-500">Upload or paste data to see AI-generated summary</p>
+                      <div className="text-xs text-gray-400 space-y-1">
+                        <p>• Get intelligent text analysis</p>
+                        <p>• Hear your data with text-to-speech</p>
+                        <p>• View interactive charts</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Show summary for agent data source */}
-        {dataSource === 'agent' && summary && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                AI Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isProcessing ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Analyzing data...</p>
-                  </div>
+      {/* Show summary for agent data source */}
+      {dataSource === 'agent' && summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              AI Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isProcessing ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Analyzing data...</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
-                      ✅ Analysis Complete!
-                    </div>
-                    <p className="text-xs text-green-700 mt-1">
-                      Your agent data has been processed. Use the actions below to interact with your results.
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Export to Different Surfaces - Only show once */}
-        {parsedData.length > 0 && summary && (
-          <Card className="border-green-200 bg-green-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-800">
-                📤 Export & Actions
-                <div className="ml-auto flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={isSpeaking ? stopSpeaking : speakSummary}
-                    disabled={!summary}
-                    className="bg-white"
-                  >
-                    <Volume2 className="h-4 w-4" />
-                    {isSpeaking ? 'Stop' : 'Speak'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={downloadResults} className="bg-white">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </div>
+            ) : (
               <div className="space-y-3">
-                <p className="text-sm text-green-700">
-                  Send your processed data to different devices and environments:
-                </p>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateQRCode}
-                    className="flex items-center gap-1 h-auto py-2 bg-white"
-                  >
-                    <span className="text-lg">📱</span>
-                    <div className="text-left">
-                      <div className="text-xs font-medium">Mobile</div>
-                      <div className="text-xs text-gray-500">QR Code</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={sendToAmbientDisplay}
-                    className="flex items-center gap-1 h-auto py-2 bg-white"
-                  >
-                    <span className="text-lg">🖥️</span>
-                    <div className="text-left">
-                      <div className="text-xs font-medium">Smart Display</div>
-                      <div className="text-xs text-gray-500">Ambient</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateVoiceScript}
-                    className="flex items-center gap-1 h-auto py-2 bg-white"
-                  >
-                    <span className="text-lg">🎤</span>
-                    <div className="text-left">
-                      <div className="text-xs font-medium">Voice Assistant</div>
-                      <div className="text-xs text-gray-500">Script</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateAPIEndpoint}
-                    className="flex items-center gap-1 h-auto py-2 bg-white"
-                  >
-                    <span className="text-lg">🔗</span>
-                    <div className="text-left">
-                      <div className="text-xs font-medium">API Endpoint</div>
-                      <div className="text-xs text-gray-500">JSON</div>
-                    </div>
-                  </Button>
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
+                    ✅ Analysis Complete!
+                  </div>
+                  <p className="text-xs text-green-700 mt-1">
+                    Your agent data has been processed. Use the actions below to interact with your results.
+                  </p>
                 </div>
-                
-                <div className="text-xs text-green-600 space-y-1">
-                  <div>📱 <strong>Mobile:</strong> Generates QR code for instant phone access</div>
-                  <div>🖥️ <strong>Smart Display:</strong> Sends data to ambient displays (30s duration)</div>
-                  <div>🎤 <strong>Voice Assistant:</strong> Downloads optimized voice script</div>
-                  <div>🔗 <strong>API:</strong> Creates endpoint for AR/VR or custom integrations</div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-        {parsedData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                📊 Data Visualization
-                <Badge variant="outline" className="ml-auto">
-                  {parsedData.length} records • {displayContext} mode
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">
-                  🎯 {displayContext === 'dashboard' && 'Full dashboard view with interactive charts'}
-                  {displayContext === 'mobile' && 'Mobile-optimized compact visualization'}
-                  {displayContext === 'meeting' && 'Presentation-ready charts for meetings'}
-                  {displayContext === 'ambient' && 'Simplified glanceable visualization'}
-                </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Switch between chart types below. Hover over charts for detailed values.
-                </p>
+      {/* Export to Different Surfaces - Only show once */}
+      {parsedData.length > 0 && summary && (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-800">
+              📤 Export & Actions
+              <div className="ml-auto flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={isSpeaking ? stopSpeaking : speakSummary}
+                  disabled={!summary}
+                  className="bg-white"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  {isSpeaking ? 'Stop' : 'Speak'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={downloadResults} className="bg-white">
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-green-700">
+                Send your processed data to different devices and environments:
+              </p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateQRCode}
+                  className="flex items-center gap-1 h-auto py-2 bg-white"
+                >
+                  <span className="text-lg">📱</span>
+                  <div className="text-left">
+                    <div className="text-xs font-medium">Mobile</div>
+                    <div className="text-xs text-gray-500">QR Code</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={sendToAmbientDisplay}
+                  className="flex items-center gap-1 h-auto py-2 bg-white"
+                >
+                  <span className="text-lg">🖥️</span>
+                  <div className="text-left">
+                    <div className="text-xs font-medium">Smart Display</div>
+                    <div className="text-xs text-gray-500">Ambient</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateVoiceScript}
+                  className="flex items-center gap-1 h-auto py-2 bg-white"
+                >
+                  <span className="text-lg">🎤</span>
+                  <div className="text-left">
+                    <div className="text-xs font-medium">Voice Assistant</div>
+                    <div className="text-xs text-gray-500">Script</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateAPIEndpoint}
+                  className="flex items-center gap-1 h-auto py-2 bg-white"
+                >
+                  <span className="text-lg">🔗</span>
+                  <div className="text-left">
+                    <div className="text-xs font-medium">API Endpoint</div>
+                    <div className="text-xs text-gray-500">JSON</div>
+                  </div>
+                </Button>
               </div>
               
-              <Tabs defaultValue="bar" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="bar" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Bar Chart
-                  </TabsTrigger>
-                  <TabsTrigger value="pie" className="flex items-center gap-2">
-                    <PieChart className="h-4 w-4" />
-                    Pie Chart
-                  </TabsTrigger>
-                  <TabsTrigger value="line" className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    Line Chart
-                  </TabsTrigger>
-                </TabsList>
+              <div className="text-xs text-green-600 space-y-1">
+                <div>📱 <strong>Mobile:</strong> Generates QR code for instant phone access</div>
+                <div>🖥️ <strong>Smart Display:</strong> Sends data to ambient displays (30s duration)</div>
+                <div>🎤 <strong>Voice Assistant:</strong> Downloads optimized voice script</div>
+                <div>🔗 <strong>API:</strong> Creates endpoint for AR/VR or custom integrations</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-                <TabsContent value="bar">
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">📊 Bar chart showing comparative values</p>
-                    <ResponsiveContainer 
-                      width="100%" 
-                      height={
-                        displayContext === 'mobile' ? 200 :
-                        displayContext === 'ambient' ? 150 :
-                        displayContext === 'meeting' ? 350 : 300
-                      }
-                    >
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
-                          fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
-                        />
-                        <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#3B82F6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </TabsContent>
+      {parsedData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📊 Data Visualization
+              <Badge variant="outline" className="ml-auto">
+                {parsedData.length} records • {displayContext} mode
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">
+                🎯 {displayContext === 'dashboard' && 'Full dashboard view with interactive charts'}
+                {displayContext === 'mobile' && 'Mobile-optimized compact visualization'}
+                {displayContext === 'meeting' && 'Presentation-ready charts for meetings'}
+                {displayContext === 'ambient' && 'Simplified glanceable visualization'}
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Switch between chart types below. Hover over charts for detailed values.
+              </p>
+            </div>
+            
+            <Tabs defaultValue="bar" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="bar" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Bar Chart
+                </TabsTrigger>
+                <TabsTrigger value="pie" className="flex items-center gap-2">
+                  <PieChart className="h-4 w-4" />
+                  Pie Chart
+                </TabsTrigger>
+                <TabsTrigger value="line" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Line Chart
+                </TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="pie">
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">🥧 Pie chart showing proportional distribution</p>
-                    <ResponsiveContainer 
-                      width="100%" 
-                      height={
-                        displayContext === 'mobile' ? 200 :
-                        displayContext === 'ambient' ? 150 :
-                        displayContext === 'meeting' ? 350 : 300
-                      }
-                    >
-                      <RechartsPieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={
-                            displayContext === 'mobile' ? 60 :
-                            displayContext === 'ambient' ? 50 :
-                            displayContext === 'meeting' ? 100 : 80
-                          }
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={displayContext !== 'ambient' ? ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%` : false}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="line">
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">📈 Line chart showing trends over sequence</p>
-                    <ResponsiveContainer 
-                      width="100%" 
-                      height={
-                        displayContext === 'mobile' ? 200 :
-                        displayContext === 'ambient' ? 150 :
-                        displayContext === 'meeting' ? 350 : 300
-                      }
-                    >
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
-                          fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
-                        />
-                        <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
-                        <Tooltip />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#3B82F6" 
-                          strokeWidth={displayContext === 'meeting' ? 3 : 2} 
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </TabsContent>
-              </Tabs>
-              
-              {chartData.length === 0 && (
-                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                  <p className="text-gray-500">📈 No numeric data found for charting</p>
-                  <p className="text-xs text-gray-400 mt-1">Charts require numeric values in your data</p>
+              <TabsContent value="bar">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">📊 Bar chart showing comparative values</p>
+                  <ResponsiveContainer 
+                    width="100%" 
+                    height={
+                      displayContext === 'mobile' ? 200 :
+                      displayContext === 'ambient' ? 150 :
+                      displayContext === 'meeting' ? 350 : 300
+                    }
+                  >
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="name" 
+                        fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
+                      />
+                      <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#3B82F6" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+              </TabsContent>
 
-        {!user && dataSource === 'agent' && (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-gray-500">Please sign in to access agent data</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+              <TabsContent value="pie">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">🥧 Pie chart showing proportional distribution</p>
+                  <ResponsiveContainer 
+                    width="100%" 
+                    height={
+                      displayContext === 'mobile' ? 200 :
+                      displayContext === 'ambient' ? 150 :
+                      displayContext === 'meeting' ? 350 : 300
+                    }
+                  >
+                    <RechartsPieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={
+                          displayContext === 'mobile' ? 60 :
+                          displayContext === 'ambient' ? 50 :
+                          displayContext === 'meeting' ? 100 : 80
+                        }
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={displayContext !== 'ambient' ? ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%` : false}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="line">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">📈 Line chart showing trends over sequence</p>
+                  <ResponsiveContainer 
+                    width="100%" 
+                    height={
+                      displayContext === 'mobile' ? 200 :
+                      displayContext === 'ambient' ? 150 :
+                      displayContext === 'meeting' ? 350 : 300
+                    }
+                  >
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="name" 
+                        fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
+                      />
+                      <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
+                      <Tooltip />
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#3B82F6" 
+                        strokeWidth={displayContext === 'meeting' ? 3 : 2} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            {chartData.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-gray-500">📈 No numeric data found for charting</p>
+                <p className="text-xs text-gray-400 mt-1">Charts require numeric values in your data</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!user && dataSource === 'agent' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">Please sign in to access agent data</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
