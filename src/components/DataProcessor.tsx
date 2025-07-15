@@ -825,17 +825,6 @@ export default function DataProcessor() {
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
                 AI Summary
-                <div className="ml-auto flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={isSpeaking ? stopSpeaking : speakSummary}
-                    disabled={!summary}
-                  >
-                    <Volume2 className="h-4 w-4" />
-                    {isSpeaking ? 'Stop' : 'Speak'}
-                  </Button>
-                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -847,8 +836,18 @@ export default function DataProcessor() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
+                <div className="space-y-3">
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
+                      ✅ Analysis Complete!
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      Your agent data has been processed. Use the actions below to interact with your results.
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
+                  </div>
                 </div>
               )}
             </CardContent>
