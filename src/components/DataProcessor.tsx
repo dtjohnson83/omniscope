@@ -11,9 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import Navigation from './Navigation';
-
-interface DataItem {
+export default function DataProcessor() {
   [key: string]: any;
 }
 
