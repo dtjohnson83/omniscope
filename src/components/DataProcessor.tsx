@@ -11,9 +11,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-export default function DataProcessor() {
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+interface DataItem {
   [key: string]: any;
 }
+
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  data_types: string[];
+  status: string;
+  webhook_url: string;
+  category: string;
+  description: string;
+}
+
+interface AgentData {
+  id: string;
+  agent_id: string;
+  processed_data: any;
+  collected_at: string;
+  status: string;
+  agents: Agent;
+}
+
+const sampleData = [
+  { name: 'Jan', value: 400, sales: 240, profit: 160 },
+  { name: 'Feb', value: 300, sales: 456, profit: 180 },
+  { name: 'Mar', value: 200, sales: 320, profit: 120 },
+  { name: 'Apr', value: 278, sales: 280, profit: 200 },
+  { name: 'May', value: 189, sales: 190, profit: 140 },
+];
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+export default function DataProcessor() {
 
 interface ChartData {
   name: string;
@@ -465,9 +515,7 @@ export default function DataProcessor() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-blue-600">Universal Data Processor</h1>
           <p className="text-gray-600">Process data from your agents or upload/analyze your own data with AI-powered insights</p>
