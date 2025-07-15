@@ -456,7 +456,7 @@ export default function UniversalAPIAgent() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-blue-600">Universal API Agent System</h1>
+        <h1 className="text-3xl font-bold text-blue-600">Universal Agent System</h1>
         <p className="text-gray-600">Connect any API as a data source and collect real-time information</p>
       </div>
 
