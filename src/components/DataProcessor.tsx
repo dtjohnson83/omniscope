@@ -24,10 +24,10 @@ interface ChartData {
 interface Agent {
   id: string;
   name: string;
-  data_types: string[];
+  data_types?: string[];
   status: string;
-  webhook_url: string;
-  category: string;
+  api_url: string;
+  category?: string;
   description: string;
 }
 
@@ -37,7 +37,7 @@ interface AgentData {
   processed_data: any;
   collected_at: string;
   status: string;
-  agents: Agent;
+  api_agents: Agent;
 }
 
 const sampleData = [
@@ -91,7 +91,7 @@ export default function DataProcessor() {
     setLoadingAgents(true);
     try {
       const { data, error } = await supabase
-        .from('agents')
+        .from('api_agents')
         .select('*')
         .eq('status', 'active')
         .order('name');
@@ -113,7 +113,7 @@ export default function DataProcessor() {
         .from('agent_data')
         .select(`
           *,
-          agents(id, name, data_types, status, webhook_url, category, description)
+          api_agents(id, name, data_types, status, api_url, category, description)
         `)
         .eq('agent_id', agentId)
         .order('collected_at', { ascending: false })
@@ -154,7 +154,7 @@ export default function DataProcessor() {
 
       setParsedData(processedArray);
       setJsonData(JSON.stringify(data, null, 2));
-      generateSummary(processedArray, agentDataItem.agents);
+      generateSummary(processedArray, agentDataItem.api_agents);
       generateChartData(processedArray);
       setError('');
     } catch (error) {
