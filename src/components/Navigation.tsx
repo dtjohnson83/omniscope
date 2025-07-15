@@ -17,14 +17,9 @@ const Navigation = () => {
       icon: '📊'
     },
     {
-      to: '/agents',
+      to: '/api-agents',
       label: '🤖 Agents',
       icon: '🤖'
-    },
-    {
-      to: '/api-agents',
-      label: '🔗 API Agents',
-      icon: '🔗'
     }
   ];
 
