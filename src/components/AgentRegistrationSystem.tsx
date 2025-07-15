@@ -899,7 +899,7 @@ const QueryInterface = ({ user }: { user: any }) => {
     }
 
     // Extract current values from latest data
-    const results = data.map(record => {
+    const results = data.map((record: any) => {
       const agentName = record.agents?.name;
       const processedData = record.processed_data;
       
@@ -1004,7 +1004,7 @@ const QueryInterface = ({ user }: { user: any }) => {
       };
     }
 
-    const summary = data.map(record => {
+    const summary = data.map((record: any) => {
       const agentName = record.agents?.name;
       const timestamp = new Date(record.collected_at).toLocaleString();
       const dataSize = JSON.stringify(record.processed_data).length;
