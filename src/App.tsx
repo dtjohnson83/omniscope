@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
 import DataProcessor from './components/DataProcessor';
-import AgentRegistrationSystem from './components/AgentRegistrationSystem';
 import UniversalAPIAgent from './components/UniversalAPIAgent';
 
 function App() {
@@ -96,8 +95,6 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
-            <Route path="/agents" element={<AgentRegistrationSystem />} />
-            <Route path="/agent-registration" element={<AgentRegistrationSystem />} />
             <Route path="/api-agents" element={<UniversalAPIAgent />} />
             <Route path="*" element={
               <div className="text-center py-12">
