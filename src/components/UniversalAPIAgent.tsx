@@ -339,7 +339,7 @@ export default function UniversalAPIAgent() {
 
       // Extract data using data_path
       let extractedData = response.data;
-      if (agent.data_path && agent.data_path !== '$') {
+      if (agent.data_path && agent.data_path !== '$') { 
 
   const toggleAgentStatus = async (agent: APIAgent) => {
     const newStatus = agent.status === 'active' ? 'inactive' : 'active';
