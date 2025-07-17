@@ -1,1113 +1,378 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, BarChart3, PieChart, TrendingUp, Volume2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { AlertCircle, CheckCircle, Clock, Database, TrendingUp, Activity } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { AgentDataProcessor } from '@/lib/agent/dataProcessor';
+import { SemanticProcessor } from '@/lib/semanticProcessor';
 
-interface DataItem {
-  [key: string]: any;
-}
-
-interface ChartData {
-  name: string;
-  value: number;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  data_types?: string[];
-  status: string;
-  api_url: string;
-  category?: string;
-  description: string;
-}
-
-interface AgentData {
+interface ProcessedData {
   id: string;
   agent_id: string;
+  raw_response: any;
   processed_data: any;
-  collected_at: string;
   status: string;
-  api_agents: Agent;
+  collected_at: string;
+  response_time_ms: number;
+  semantic_metadata?: any;
 }
 
-const sampleData = [
-  { name: 'Jan', value: 400, sales: 240, profit: 160 },
-  { name: 'Feb', value: 300, sales: 456, profit: 180 },
-  { name: 'Mar', value: 200, sales: 320, profit: 120 },
-  { name: 'Apr', value: 278, sales: 280, profit: 200 },
-  { name: 'May', value: 189, sales: 190, profit: 140 },
-];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
-export default function DataProcessor() {
-  const [jsonData, setJsonData] = useState('');
-  const [parsedData, setParsedData] = useState<DataItem[]>([]);
-  const [summary, setSummary] = useState('');
-  const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [error, setError] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  
-  // Agent-related state
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<string>('');
-  const [agentData, setAgentData] = useState<AgentData[]>([]);
-  const [loadingAgents, setLoadingAgents] = useState(false);
-  const [loadingAgentData, setLoadingAgentData] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [dataSource, setDataSource] = useState<'manual' | 'agent'>('manual');
-  
-  // Context-aware display state
-  const [displayContext, setDisplayContext] = useState<'dashboard' | 'mobile' | 'meeting' | 'ambient'>('dashboard');
+const DataProcessor: React.FC = () => {
+  const [data, setData] = useState<ProcessedData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedData, setSelectedData] = useState<ProcessedData | null>(null);
+  const [processingStats, setProcessingStats] = useState({
+    total: 0,
+    processed: 0,
+    errors: 0,
+    avgResponseTime: 0
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
-    checkUser();
+    fetchProcessedData();
+    const interval = setInterval(fetchProcessedData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
-  const checkUser = async () => {
+  const fetchProcessedData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        loadAgents();
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-    }
-  };
-
-  const loadAgents = async () => {
-    setLoadingAgents(true);
-    try {
-      const { data, error } = await supabase
-        .from('api_agents')
-        .select('*')
-        .eq('status', 'active')
-        .order('name');
-
-      if (error) throw error;
-      setAgents(data || []);
-    } catch (error) {
-      console.error('Error loading agents:', error);
-      setError('Failed to load agents');
-    } finally {
-      setLoadingAgents(false);
-    }
-  };
-
-  const loadAgentData = async (agentId: string) => {
-    setLoadingAgentData(true);
-    try {
-      const { data, error } = await supabase
+      const { data: agentData, error } = await supabase
         .from('agent_data')
-        .select(`
-          *,
-          api_agents(id, name, data_types, status, api_url, category, description)
-        `)
-        .eq('agent_id', agentId)
+        .select('*')
         .order('collected_at', { ascending: false })
-        .limit(20);
+        .limit(100);
 
       if (error) throw error;
-      setAgentData(data || []);
+
+      setData(agentData || []);
+      
+      // Calculate processing stats
+      const total = agentData?.length || 0;
+      const processed = agentData?.filter(d => d.status === 'success').length || 0;
+      const errors = agentData?.filter(d => d.status === 'error').length || 0;
+      const avgResponseTime = agentData?.reduce((acc, d) => acc + (d.response_time_ms || 0), 0) / total || 0;
+      
+      setProcessingStats({ total, processed, errors, avgResponseTime });
     } catch (error) {
-      console.error('Error loading agent data:', error);
-      setError('Failed to load agent data');
+      console.error('Error fetching processed data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch processed data',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const reprocessData = async (dataId: string) => {
+    setIsLoading(true);
+    try {
+      const dataItem = data.find(d => d.id === dataId);
+      if (!dataItem) throw new Error('Data item not found');
+
+      const processor = new AgentDataProcessor();
+      const semanticProcessor = new SemanticProcessor();
+      
+      // Reprocess the data
+      const processedResult = processor.processResponse(dataItem.raw_response, []);
+      const semanticData = await semanticProcessor.extractSemanticData(processedResult);
+      
+      // Update in database
+      const { error } = await supabase
+        .from('agent_data')
+        .update({
+          processed_data: processedResult,
+          semantic_metadata: semanticData
+        })
+        .eq('id', dataId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Data reprocessed successfully'
+      });
+
+      fetchProcessedData();
+    } catch (error) {
+      console.error('Error reprocessing data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reprocess data',
+        variant: 'destructive'
+      });
     } finally {
-      setLoadingAgentData(false);
+      setIsLoading(false);
     }
   };
 
-  const handleAgentSelect = (agentId: string) => {
-    setSelectedAgent(agentId);
-    if (agentId) {
-      loadAgentData(agentId);
-    } else {
-      setAgentData([]);
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'processing': return <Clock className="h-4 w-4 text-yellow-500" />;
+      default: return <Activity className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const processAgentData = (agentDataItem: AgentData) => {
-    try {
-      const data = agentDataItem.processed_data;
-      let processedArray: DataItem[] = [];
-      
-      // Convert agent data to array format for processing
-      if (Array.isArray(data)) {
-        processedArray = data;
-      } else if (typeof data === 'object' && data !== null) {
-        processedArray = [data];
-      } else {
-        processedArray = [{ value: data, name: 'Data Point' }];
-      }
-
-      setParsedData(processedArray);
-      setJsonData(JSON.stringify(data, null, 2));
-      generateSummary(processedArray, agentDataItem.api_agents);
-      generateChartData(processedArray);
-      setError('');
-    } catch (error) {
-      console.error('Error processing agent data:', error);
-      setError('Failed to process agent data');
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'bg-green-100 text-green-800';
+      case 'error': return 'bg-red-100 text-red-800';
+      case 'processing': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const processFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result;
-      if (typeof content === 'string') {
-        setJsonData(content);
-        try {
-          const parsed = JSON.parse(content);
-          if (Array.isArray(parsed)) {
-            setParsedData(parsed);
-            generateSummary(parsed);
-            generateChartData(parsed);
-            setError('');
-          } else {
-            setError('Data must be an array of objects');
-          }
-        } catch (error) {
-          setError('Invalid JSON format');
-        }
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  };
-
-  const handleJsonInput = () => {
-    if (!jsonData.trim()) {
-      setError('Please enter JSON data');
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(jsonData);
-      if (Array.isArray(parsed)) {
-        setParsedData(parsed);
-        generateSummary(parsed);
-        generateChartData(parsed);
-        setError('');
-      } else {
-        setError('Data must be an array of objects');
-      }
-    } catch (error) {
-      setError('Invalid JSON format');
-    }
-  };
-
-  const generateSummary = (data: DataItem[], agent?: Agent) => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      const totalRecords = data.length;
-      const fields = data.length > 0 ? Object.keys(data[0]) : [];
-      const numericFields = fields.filter(field => 
-        data.some(item => typeof item[field] === 'number')
-      );
-      
-      let summaryText = '';
-      
-      if (agent) {
-        summaryText += `Data from agent: ${agent.name}\n`;
-        summaryText += `Agent category: ${agent.category}\n`;
-        summaryText += `Data types: ${agent.data_types.join(', ')}\n\n`;
-      }
-      
-      // Context-aware summary formatting
-      if (displayContext === 'mobile') {
-        summaryText += `📱 Mobile Summary:\n${totalRecords} records, ${fields.length} fields\n`;
-        if (numericFields.length > 0) {
-          const firstField = numericFields[0];
-          const values = data.map(item => item[firstField]).filter(val => typeof val === 'number');
-          if (values.length > 0) {
-            const avg = values.reduce((a, b) => a + b, 0) / values.length;
-            summaryText += `Key metric (${firstField}): ${avg.toFixed(1)} avg\n`;
-          }
-        }
-      } else if (displayContext === 'meeting') {
-        summaryText += `🏢 Meeting Brief:\n`;
-        summaryText += `Dataset: ${totalRecords} records analyzed\n`;
-        if (numericFields.length > 0) {
-          summaryText += `Key insights:\n`;
-          numericFields.slice(0, 2).forEach(field => {
-            const values = data.map(item => item[field]).filter(val => typeof val === 'number');
-            if (values.length > 0) {
-              const sum = values.reduce((a, b) => a + b, 0);
-              const avg = sum / values.length;
-              summaryText += `• ${field}: ${avg.toFixed(2)} average, ${sum} total\n`;
-            }
-          });
-        }
-      } else if (displayContext === 'ambient') {
-        summaryText += `🌐 Quick Glance:\n`;
-        if (numericFields.length > 0) {
-          const firstField = numericFields[0];
-          const values = data.map(item => item[firstField]).filter(val => typeof val === 'number');
-          if (values.length > 0) {
-            const latest = values[0];
-            const avg = values.reduce((a, b) => a + b, 0) / values.length;
-            summaryText += `${firstField}: ${latest} (avg: ${avg.toFixed(1)})\n`;
-          }
-        }
-        summaryText += `${totalRecords} data points\n`;
-      } else {
-        // Dashboard mode - full detail
-        summaryText += `Dataset contains ${totalRecords} records with ${fields.length} fields.\n`;
-        summaryText += `Fields: ${fields.join(', ')}\n`;
-        
-        if (numericFields.length > 0) {
-          summaryText += `\nNumeric analysis:\n`;
-          numericFields.forEach(field => {
-            const values = data.map(item => item[field]).filter(val => typeof val === 'number');
-            if (values.length > 0) {
-              const sum = values.reduce((a, b) => a + b, 0);
-              const avg = sum / values.length;
-              const min = Math.min(...values);
-              const max = Math.max(...values);
-              summaryText += `- ${field}: Average = ${avg.toFixed(2)}, Total = ${sum}, Min = ${min}, Max = ${max}\n`;
-            }
-          });
-        }
-      }
-      
-      if (agent && displayContext === 'dashboard') {
-        summaryText += `\nData collected at: ${new Date().toLocaleString()}\n`;
-        summaryText += `Agent status: ${agent.status}\n`;
-      }
-      
-      setSummary(summaryText);
-      setIsProcessing(false);
-    }, 1500);
-  };
-
-  const generateChartData = (data: DataItem[]) => {
-    if (data.length === 0) return;
-    
-    const firstItem = data[0];
-    const numericFields = Object.keys(firstItem).filter(key => 
-      typeof firstItem[key] === 'number'
-    );
-    
-    if (numericFields.length > 0) {
-      const chartData = data.slice(0, 10).map((item, index) => ({
-        name: item.name || item.label || item.timestamp || `Item ${index + 1}`,
-        value: item[numericFields[0]] || 0
-      }));
-      setChartData(chartData);
-    }
-  };
-
-  const speakSummary = () => {
-    if ('speechSynthesis' in window && summary) {
-      setIsSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(summary);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      speechSynthesis.speak(utterance);
-    } else {
-      setError('Speech synthesis not supported in this browser');
-    }
-  };
-
-  const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
-  };
-
-  const loadSampleData = () => {
-    const sampleJson = JSON.stringify(sampleData, null, 2);
-    setJsonData(sampleJson);
-    setParsedData(sampleData);
-    generateSummary(sampleData);
-    generateChartData(sampleData);
-    setError('');
-  };
-
-  const downloadResults = () => {
-    const results = {
-      originalData: parsedData,
-      summary: summary,
-      chartData: chartData,
-      dataSource: dataSource,
-      displayContext: displayContext,
-      agent: selectedAgent ? agents.find(a => a.id === selectedAgent) : null,
-      timestamp: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `data-analysis-results-${displayContext}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const generateQRCode = () => {
-    const exportData = {
-      summary: summary,
-      chartData: chartData,
-      context: displayContext,
-      timestamp: new Date().toISOString()
-    };
-    
-    const dataUrl = `data:application/json;base64,${btoa(JSON.stringify(exportData))}`;
-    const qrData = `${window.location.origin}/view-data?data=${encodeURIComponent(dataUrl)}`;
-    
-    // Create QR code URL (using a free QR service)
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-    
-    // Open QR code in new window
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.document.write(`
-        <html>
-          <head><title>QR Code - Share Data</title></head>
-          <body style="display: flex; flex-direction: column; align-items: center; padding: 20px; font-family: sans-serif;">
-            <h2>📱 Scan to View Data on Mobile</h2>
-            <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; padding: 10px;">
-            <p style="text-align: center; color: #666; margin-top: 20px;">
-              Scan this QR code with your phone to view the processed data<br>
-              Context: ${displayContext} mode
-            </p>
-          </body>
-        </html>
-      `);
-    }
-  };
-
-  const sendToAmbientDisplay = () => {
-    const ambientData = {
-      type: 'data_visualization',
-      context: 'ambient',
-      summary: summary,
-      chartData: chartData.slice(0, 5), // Limit for ambient display
-      timestamp: new Date().toISOString(),
-      displayDuration: 30 // seconds
-    };
-
-    // Simulate API call to ambient display
-    console.log('Sending to ambient display:', ambientData);
-    
-    // Show success message
-    alert(`📺 Data sent to ambient display!\n\nSummary: ${summary.slice(0, 100)}...\nDisplay duration: 30 seconds`);
-  };
-
-  const generateVoiceScript = () => {
-    let voiceScript = summary;
-    
-    // Optimize for voice based on context
-    if (displayContext === 'ambient') {
-      const lines = summary.split('\n').filter(line => line.trim());
-      voiceScript = lines.slice(0, 2).join('. ') + '.';
-    } else if (displayContext === 'mobile') {
-      voiceScript = summary.replace(/\n/g, '. ').replace(/\.\./g, '.');
-    }
-    
-    const blob = new Blob([voiceScript], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `voice-script-${displayContext}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const generateAPIEndpoint = () => {
-    const apiData = {
-      endpoint: `${window.location.origin}/api/data/${btoa(JSON.stringify({
-        summary: summary,
-        chartData: chartData,
-        context: displayContext,
-        timestamp: new Date().toISOString()
-      }))}`,
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Display-Context': displayContext
-      },
-      description: `API endpoint for ${displayContext} formatted data`
-    };
-
-    const blob = new Blob([JSON.stringify(apiData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `api-endpoint-${displayContext}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  // Chart data preparation
+  const chartData = data.slice(0, 20).reverse().map((item, index) => ({
+    time: new Date(item.collected_at).toLocaleTimeString(),
+    responseTime: item.response_time_ms || 0,
+    status: item.status === 'success' ? 1 : 0
+  }));
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-blue-600">Universal Data Processor</h1>
-        <p className="text-gray-600">Process data from your agents or upload/analyze your own data with AI-powered insights</p>
-      </div>
-
-      {/* Data Source Selection */}
-      <div className="flex justify-center space-x-4">
-        <Button
-          variant={dataSource === 'manual' ? 'default' : 'outline'}
-          onClick={() => setDataSource('manual')}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          Manual Data
-        </Button>
-        <Button
-          variant={dataSource === 'agent' ? 'default' : 'outline'}
-          onClick={() => setDataSource('agent')}
-          className="flex items-center gap-2"
-        >
-          <Wifi className="h-4 w-4" />
-          Agent Data
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Data Processor</h1>
+          <p className="text-gray-600 mt-2">Monitor and analyze collected agent data</p>
+        </div>
+        <Button onClick={fetchProcessedData} disabled={isLoading}>
+          {isLoading ? 'Refreshing...' : 'Refresh Data'}
         </Button>
       </div>
 
-      {/* Context-Aware Display Controls */}
-      {parsedData.length > 0 && (
-        <Card className="border-purple-200 bg-purple-50">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-3">
-              <h3 className="font-semibold text-purple-800">🖥️ Display Context</h3>
-              <p className="text-sm text-purple-700">
-                Choose how to format this data for different environments
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  variant={displayContext === 'dashboard' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setDisplayContext('dashboard');
-                    if (parsedData.length > 0) generateSummary(parsedData);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  🖥️ Dashboard
-                </Button>
-                <Button
-                  variant={displayContext === 'mobile' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setDisplayContext('mobile');
-                    if (parsedData.length > 0) generateSummary(parsedData);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  📱 Mobile
-                </Button>
-                <Button
-                  variant={displayContext === 'meeting' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setDisplayContext('meeting');
-                    if (parsedData.length > 0) generateSummary(parsedData);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  🏢 Meeting
-                </Button>
-                <Button
-                  variant={displayContext === 'ambient' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setDisplayContext('ambient');
-                    if (parsedData.length > 0) generateSummary(parsedData);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  🌐 Ambient
-                </Button>
-              </div>
-              <div className="text-xs text-purple-600">
-                {displayContext === 'dashboard' && '• Full detailed analysis with all metrics'}
-                {displayContext === 'mobile' && '• Condensed view optimized for small screens'}
-                {displayContext === 'meeting' && '• Key insights formatted for presentations'}
-                {displayContext === 'ambient' && '• Minimal glanceable information'}
-              </div>
-            </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Total Records
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{processingStats.total}</div>
           </CardContent>
         </Card>
-      )}
 
-      {error && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertDescription className="text-red-800">
-            ❌ {error}
-          </AlertDescription>
-        </Alert>
-      )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              Processed
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{processingStats.processed}</div>
+            <Progress 
+              value={(processingStats.processed / processingStats.total) * 100} 
+              className="mt-2"
+            />
+          </CardContent>
+        </Card>
 
-      {dataSource === 'agent' && user && (
-        <div className="space-y-4">
-          {/* Quick Start Guide for Agent Data */}
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-2">
-                <h3 className="font-semibold text-green-800">🤖 Agent Data Processing</h3>
-                <p className="text-sm text-green-700">
-                  1. Select an agent → 2. Choose data to analyze → 3. Click "Analyze & Visualize" → 4. Get AI insights + charts
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              Errors
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{processingStats.errors}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Avg Response Time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(processingStats.avgResponseTime)}ms</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="data" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="data">Processed Data</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="data" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-5 w-5" />
-                Select Agent Data Source
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadAgents}
-                  disabled={loadingAgents}
-                  className="ml-auto"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loadingAgents ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </CardTitle>
+              <CardTitle>Recent Data Processing Results</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Choose Agent</Label>
-                <Select value={selectedAgent} onValueChange={handleAgentSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an agent to process data from" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {agents.map((agent) => (
-                      <SelectItem key={agent.id} value={agent.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{agent.category}</Badge>
-                          {agent.name} - {agent.data_types.join(', ')}
+            <CardContent>
+              <div className="space-y-3">
+                {data.map((item) => (
+                  <div key={item.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          {getStatusIcon(item.status)}
+                          <Badge className={getStatusColor(item.status)}>
+                            {item.status}
+                          </Badge>
+                          <span className="text-sm text-gray-500">
+                            {new Date(item.collected_at).toLocaleString()}
+                          </span>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {agents.length === 0 && !loadingAgents && (
-                <Alert>
-                  <WifiOff className="h-4 w-4" />
-                  <AlertDescription>
-                    No active agents found. Please register and activate agents first.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {selectedAgent && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Recent Data from Agent</Label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => loadAgentData(selectedAgent)}
-                      disabled={loadingAgentData}
-                    >
-                      <RefreshCw className={`h-4 w-4 ${loadingAgentData ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
+                        <div className="text-sm text-gray-600">
+                          <p><strong>Agent ID:</strong> {item.agent_id}</p>
+                          <p><strong>Response Time:</strong> {item.response_time_ms}ms</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedData(item)}
+                        >
+                          View Details
+                        </Button>
+                        {item.status === 'error' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => reprocessData(item.id)}
+                            disabled={isLoading}
+                          >
+                            Reprocess
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  
-                  {loadingAgentData ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-600 mt-2">Loading agent data...</p>
-                    </div>
-                  ) : agentData.length === 0 ? (
-                    <Alert>
-                      <AlertDescription>
-                        No data available from this agent yet.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <p className="text-sm text-blue-800 font-medium">📋 How to use:</p>
-                        <p className="text-xs text-blue-700 mt-1">
-                          Click "Analyze & Visualize" on any data item below to generate text summary, voice output, and interactive charts
-                        </p>
-                      </div>
-                      
-                      <div className="space-y-3 max-h-60 overflow-y-auto">
-                        {agentData.map((dataItem) => (
-                          <div key={dataItem.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant={dataItem.status === 'success' ? 'default' : 'destructive'}>
-                                    {dataItem.status}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500">
-                                    {new Date(dataItem.collected_at).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  Data size: {JSON.stringify(dataItem.processed_data).length} bytes
-                                </div>
-                                
-                                {/* Quick data preview */}
-                                <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
-                                  <strong>Preview:</strong> {JSON.stringify(dataItem.processed_data).slice(0, 100)}...
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => processAgentData(dataItem)}
-                                className="flex-1"
-                              >
-                                🔍 Analyze & Visualize
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setJsonData(JSON.stringify(dataItem.processed_data, null, 2));
-                                  setDataSource('manual');
-                                }}
-                              >
-                                📝 Edit
-                              </Button>
-                            </div>
-                            
-                            <details className="mt-3">
-                              <summary className="cursor-pointer text-sm text-blue-600 hover:underline">
-                                👁️ View Complete Raw Data
-                              </summary>
-                              <pre className="text-xs bg-gray-50 p-3 rounded mt-2 overflow-auto max-h-40 border">
-                                {JSON.stringify(dataItem.processed_data, null, 2)}
-                              </pre>
-                            </details>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {dataSource === 'manual' && (
-        <div className="space-y-6">
-          {/* Quick Start Guide */}
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-2">
-                <h3 className="font-semibold text-blue-800">🚀 Quick Start Guide</h3>
-                <p className="text-sm text-blue-700">
-                  1. Upload a JSON file OR paste JSON data below → 2. Click "Process Data" → 3. Get AI summary, voice output & charts
-                </p>
+                ))}
               </div>
             </CardContent>
           </Card>
-          
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Data Input
-                </CardTitle>
+                <CardTitle>Response Time Trends</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                
-                <div className="text-center">
-                  <span className="text-sm text-gray-500">or</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Paste JSON Data</Label>
-                  <Textarea
-                    value={jsonData}
-                    onChange={(e) => setJsonData(e.target.value)}
-                    placeholder='[{"name": "Item 1", "value": 100}, {"name": "Item 2", "value": 200}]'
-                    rows={8}
-                  />
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button onClick={handleJsonInput} className="flex-1" disabled={!jsonData.trim()}>
-                    🔍 Process Data
-                  </Button>
-                  <Button variant="outline" onClick={loadSampleData}>
-                    📊 Load Sample
-                  </Button>
-                </div>
-                
-                {jsonData && !parsedData.length && (
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      💡 Data entered! Click "Process Data" to analyze and visualize it.
-                    </p>
-                  </div>
-                )}
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line 
+                      type="monotone" 
+                      dataKey="responseTime" 
+                      stroke="#8884d8" 
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  AI Summary
-                </CardTitle>
+                <CardTitle>Success Rate</CardTitle>
               </CardHeader>
               <CardContent>
-                {isProcessing ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-600">Analyzing data...</p>
-                    </div>
-                  </div>
-                ) : summary ? (
-                  <div className="space-y-3">
-                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                      <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
-                        ✅ Analysis Complete!
-                      </div>
-                      <p className="text-xs text-green-700 mt-1">
-                        Your data has been processed. Use the actions below to interact with your results.
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="space-y-3">
-                      <div className="text-4xl">📊</div>
-                      <p className="text-gray-500">Upload or paste data to see AI-generated summary</p>
-                      <div className="text-xs text-gray-400 space-y-1">
-                        <p>• Get intelligent text analysis</p>
-                        <p>• Hear your data with text-to-speech</p>
-                        <p>• View interactive charts</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="status" fill="#82ca9d" />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Data Details Modal */}
+      {selectedData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Data Processing Details</h2>
+                <Button variant="outline" onClick={() => setSelectedData(null)}>
+                  Close
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Status</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {getStatusIcon(selectedData.status)}
+                      <Badge className={getStatusColor(selectedData.status)}>
+                        {selectedData.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Collected At</label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {new Date(selectedData.collected_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Response Time</label>
+                    <p className="text-sm text-gray-600 mt-1">{selectedData.response_time_ms}ms</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Agent ID</label>
+                    <p className="text-sm text-gray-600 mt-1">{selectedData.agent_id}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Raw Response</label>
+                  <pre className="bg-gray-100 p-3 rounded text-xs mt-1 overflow-auto max-h-40">
+                    {JSON.stringify(selectedData.raw_response, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Processed Data</label>
+                  <pre className="bg-gray-100 p-3 rounded text-xs mt-1 overflow-auto max-h-40">
+                    {JSON.stringify(selectedData.processed_data, null, 2)}
+                  </pre>
+                </div>
+
+                {selectedData.semantic_metadata && (
+                  <div>
+                    <label className="text-sm font-medium">Semantic Metadata</label>
+                    <pre className="bg-gray-100 p-3 rounded text-xs mt-1 overflow-auto max-h-40">
+                      {JSON.stringify(selectedData.semantic_metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* Show summary for agent data source */}
-      {dataSource === 'agent' && summary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              AI Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isProcessing ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Analyzing data...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
-                    ✅ Analysis Complete!
-                  </div>
-                  <p className="text-xs text-green-700 mt-1">
-                    Your agent data has been processed. Use the actions below to interact with your results.
-                  </p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap">{summary}</pre>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Export to Different Surfaces - Only show once */}
-      {parsedData.length > 0 && summary && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              📤 Export & Actions
-              <div className="ml-auto flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={isSpeaking ? stopSpeaking : speakSummary}
-                  disabled={!summary}
-                  className="bg-white"
-                >
-                  <Volume2 className="h-4 w-4" />
-                  {isSpeaking ? 'Stop' : 'Speak'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={downloadResults} className="bg-white">
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-sm text-green-700">
-                Send your processed data to different devices and environments:
-              </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={generateQRCode}
-                  className="flex items-center gap-1 h-auto py-2 bg-white"
-                >
-                  <span className="text-lg">📱</span>
-                  <div className="text-left">
-                    <div className="text-xs font-medium">Mobile</div>
-                    <div className="text-xs text-gray-500">QR Code</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={sendToAmbientDisplay}
-                  className="flex items-center gap-1 h-auto py-2 bg-white"
-                >
-                  <span className="text-lg">🖥️</span>
-                  <div className="text-left">
-                    <div className="text-xs font-medium">Smart Display</div>
-                    <div className="text-xs text-gray-500">Ambient</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={generateVoiceScript}
-                  className="flex items-center gap-1 h-auto py-2 bg-white"
-                >
-                  <span className="text-lg">🎤</span>
-                  <div className="text-left">
-                    <div className="text-xs font-medium">Voice Assistant</div>
-                    <div className="text-xs text-gray-500">Script</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={generateAPIEndpoint}
-                  className="flex items-center gap-1 h-auto py-2 bg-white"
-                >
-                  <span className="text-lg">🔗</span>
-                  <div className="text-left">
-                    <div className="text-xs font-medium">API Endpoint</div>
-                    <div className="text-xs text-gray-500">JSON</div>
-                  </div>
-                </Button>
-              </div>
-              
-              <div className="text-xs text-green-600 space-y-1">
-                <div>📱 <strong>Mobile:</strong> Generates QR code for instant phone access</div>
-                <div>🖥️ <strong>Smart Display:</strong> Sends data to ambient displays (30s duration)</div>
-                <div>🎤 <strong>Voice Assistant:</strong> Downloads optimized voice script</div>
-                <div>🔗 <strong>API:</strong> Creates endpoint for AR/VR or custom integrations</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {parsedData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              📊 Data Visualization
-              <Badge variant="outline" className="ml-auto">
-                {parsedData.length} records • {displayContext} mode
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium">
-                🎯 {displayContext === 'dashboard' && 'Full dashboard view with interactive charts'}
-                {displayContext === 'mobile' && 'Mobile-optimized compact visualization'}
-                {displayContext === 'meeting' && 'Presentation-ready charts for meetings'}
-                {displayContext === 'ambient' && 'Simplified glanceable visualization'}
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                Switch between chart types below. Hover over charts for detailed values.
-              </p>
-            </div>
-            
-            <Tabs defaultValue="bar" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="bar" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Bar Chart
-                </TabsTrigger>
-                <TabsTrigger value="pie" className="flex items-center gap-2">
-                  <PieChart className="h-4 w-4" />
-                  Pie Chart
-                </TabsTrigger>
-                <TabsTrigger value="line" className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Line Chart
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="bar">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">📊 Bar chart showing comparative values</p>
-                  <ResponsiveContainer 
-                    width="100%" 
-                    height={
-                      displayContext === 'mobile' ? 200 :
-                      displayContext === 'ambient' ? 150 :
-                      displayContext === 'meeting' ? 350 : 300
-                    }
-                  >
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
-                        fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
-                      />
-                      <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#3B82F6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="pie">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">🥧 Pie chart showing proportional distribution</p>
-                  <ResponsiveContainer 
-                    width="100%" 
-                    height={
-                      displayContext === 'mobile' ? 200 :
-                      displayContext === 'ambient' ? 150 :
-                      displayContext === 'meeting' ? 350 : 300
-                    }
-                  >
-                    <RechartsPieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={
-                          displayContext === 'mobile' ? 60 :
-                          displayContext === 'ambient' ? 50 :
-                          displayContext === 'meeting' ? 100 : 80
-                        }
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={displayContext !== 'ambient' ? ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%` : false}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="line">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">📈 Line chart showing trends over sequence</p>
-                  <ResponsiveContainer 
-                    width="100%" 
-                    height={
-                      displayContext === 'mobile' ? 200 :
-                      displayContext === 'ambient' ? 150 :
-                      displayContext === 'meeting' ? 350 : 300
-                    }
-                  >
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
-                        fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12}
-                      />
-                      <YAxis fontSize={displayContext === 'mobile' || displayContext === 'ambient' ? 10 : 12} />
-                      <Tooltip />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#3B82F6" 
-                        strokeWidth={displayContext === 'meeting' ? 3 : 2} 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </TabsContent>
-            </Tabs>
-            
-            {chartData.length === 0 && (
-              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                <p className="text-gray-500">📈 No numeric data found for charting</p>
-                <p className="text-xs text-gray-400 mt-1">Charts require numeric values in your data</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {!user && dataSource === 'agent' && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">Please sign in to access agent data</p>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
-}
+};
+
+export default DataProcessor;

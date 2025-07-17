@@ -2,27 +2,35 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FormData } from '@/components/agent-registration/types';
+import { Tables } from '@/integrations/supabase/types';
 
-// Updated Agent interface to match database schema
+// Updated Agent interface to match database schema exactly
 export interface Agent {
   id: string;
   name: string;
-  description: string;
-  category: string;
-  data_types: string[];
-  webhook_url: string;
-  api_key: string;
-  status: 'active' | 'inactive' | 'testing';
-  auth_method: 'api_key' | 'bearer_token' | 'basic_auth' | 'oauth' | 'custom';
-  payload_format: 'json' | 'xml' | 'form_data' | 'custom';
-  communication_method: 'webhook' | 'polling' | 'websocket' | 'custom';
-  custom_headers?: Record<string, string>;
-  custom_config?: Record<string, any>;
-  tags: string[];
-  version: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
+  description: string | null;
+  category: string | null;
+  data_types: string[] | null;
+  webhook_url: string | null;
+  api_key: string | null;
+  status: string | null;
+  auth_method: string | null;
+  payload_format: string | null;
+  communication_method: string | null;
+  custom_headers: any;
+  custom_config: any;
+  tags: string[] | null;
+  version: string | null;
+  user_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  schedule_enabled: boolean | null;
+  schedule_frequency: number | null;
+  last_execution: string | null;
+  next_execution: string | null;
+  execution_count: number | null;
+  success_count: number | null;
+  failure_count: number | null;
 }
 
 export function useAgentOperations() {
@@ -56,7 +64,7 @@ export function useAgentOperations() {
         data_types: formData.dataTypes.split(',').map(type => type.trim()),
         webhook_url: formData.webhookUrl,
         api_key: formData.apiKey,
-        status: 'inactive' as const,
+        status: 'inactive',
         auth_method: formData.authMethod,
         payload_format: formData.payloadFormat,
         communication_method: formData.communicationMethod,

@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { type Agent } from '@/lib/supabase';
+import { Agent } from '@/hooks/useAgentOperations';
 
 interface AgentListProps {
   agents: Agent[];
@@ -49,14 +49,14 @@ export function AgentList({ agents, testingAgent, onTestConnection, onToggleStat
                     <p className="text-sm text-gray-600 mb-2">{agent.description}</p>
                     
                     <div className="flex flex-wrap gap-1 mb-2">
-                      {agent.tags.slice(0, 3).map((tag) => (
+                      {agent.tags?.slice(0, 3).map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">
                           {tag}
                         </Badge>
                       ))}
-                      {agent.tags.length > 3 && (
+                      {(agent.tags?.length || 0) > 3 && (
                         <Badge variant="outline" className="text-xs">
-                          +{agent.tags.length - 3} more
+                          +{(agent.tags?.length || 0) - 3} more
                         </Badge>
                       )}
                     </div>
@@ -64,7 +64,7 @@ export function AgentList({ agents, testingAgent, onTestConnection, onToggleStat
                     <div className="text-sm text-gray-500">
                       <div><strong>Endpoint:</strong> {agent.webhook_url}</div>
                       <div><strong>Communication:</strong> {agent.communication_method} | {agent.payload_format}</div>
-                      <div><strong>Created:</strong> {new Date(agent.created_at).toLocaleDateString()}</div>
+                      <div><strong>Created:</strong> {new Date(agent.created_at || '').toLocaleDateString()}</div>
                     </div>
                   </div>
                   

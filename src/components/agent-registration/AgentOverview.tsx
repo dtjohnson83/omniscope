@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { type Agent } from '@/lib/supabase';
+import { Agent } from '@/hooks/useAgentOperations';
 
 interface AgentOverviewProps {
   agents: Agent[];
@@ -47,7 +47,7 @@ export function AgentOverview({ agents }: AgentOverviewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              {new Set(agents.map(a => a.category)).size}
+              {new Set(agents.map(a => a.category).filter(Boolean)).size}
             </div>
           </CardContent>
         </Card>
@@ -58,7 +58,7 @@ export function AgentOverview({ agents }: AgentOverviewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">
-              {new Set(agents.flatMap(a => a.data_types)).size}
+              {new Set(agents.flatMap(a => a.data_types || [])).size}
             </div>
           </CardContent>
         </Card>
@@ -81,12 +81,12 @@ export function AgentOverview({ agents }: AgentOverviewProps) {
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{agent.description}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div><strong>Category:</strong> {agent.category}</div>
-                    <div><strong>Version:</strong> {agent.version}</div>
-                    <div><strong>Communication:</strong> {agent.communication_method}</div>
-                    <div><strong>Format:</strong> {agent.payload_format}</div>
-                    <div><strong>Auth:</strong> {agent.auth_method}</div>
-                    <div><strong>Data Types:</strong> {agent.data_types.join(', ')}</div>
+                    <div><strong>Category:</strong> {agent.category || 'N/A'}</div>
+                    <div><strong>Version:</strong> {agent.version || 'N/A'}</div>
+                    <div><strong>Communication:</strong> {agent.communication_method || 'N/A'}</div>
+                    <div><strong>Format:</strong> {agent.payload_format || 'N/A'}</div>
+                    <div><strong>Auth:</strong> {agent.auth_method || 'N/A'}</div>
+                    <div><strong>Data Types:</strong> {(agent.data_types || []).join(', ') || 'N/A'}</div>
                   </div>
                 </div>
               ))}

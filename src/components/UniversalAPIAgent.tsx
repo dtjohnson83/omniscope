@@ -11,35 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, CheckCircle, Clock, Play, Pause, Trash2, Settings, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Tables } from '@/integrations/supabase/types';
 
-interface APIAgent {
-  id: string;
-  name: string;
-  description: string;
-  api_url: string;
-  http_method: string;
-  headers: Record<string, string>;
-  query_params: Record<string, string>;
-  body_template: string;
-  data_path: string;
-  collection_interval: number;
-  status: 'active' | 'inactive' | 'paused';
-  last_run: string;
-  next_run: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface APIExecution {
-  id: string;
-  agent_id: string;
-  status: 'success' | 'error';
-  response_data: any;
-  error_message: string;
-  response_time_ms: number;
-  executed_at: string;
-}
+// Use database types directly
+type APIAgent = Tables<'api_agents'>;
+type APIExecution = Tables<'api_executions'>;
 
 const UniversalAPIAgent: React.FC = () => {
   const [agents, setAgents] = useState<APIAgent[]>([]);
@@ -188,18 +164,20 @@ const UniversalAPIAgent: React.FC = () => {
       const startTime = Date.now();
       
       const requestOptions: RequestInit = {
-        method: agent.http_method,
+        method: agent.http_method || 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...agent.headers
+          ...(typeof agent.headers === 'object' && agent.headers !== null ? agent.headers as Record<string, string> : {})
         }
       };
 
       // Add query parameters to URL
       const url = new URL(agent.api_url);
-      Object.entries(agent.query_params).forEach(([key, value]) => {
-        url.searchParams.append(key, value);
-      });
+      if (agent.query_params && typeof agent.query_params === 'object') {
+        Object.entries(agent.query_params as Record<string, string>).forEach(([key, value]) => {
+          url.searchParams.append(key, value);
+        });
+      }
 
       // Add body for non-GET requests
       if (agent.http_method !== 'GET' && agent.body_template) {
@@ -236,7 +214,7 @@ const UniversalAPIAgent: React.FC = () => {
       // Store execution result
       const executionData = {
         agent_id: agent.id,
-        status: response.ok ? 'success' : 'error',
+        status: response.ok ? 'success' as const : 'error' as const,
         response_data: extractedData,
         error_message: response.ok ? null : `HTTP ${response.status}: ${response.statusText}`,
         response_time_ms: responseTime
@@ -263,7 +241,7 @@ const UniversalAPIAgent: React.FC = () => {
       // Store error execution
       const executionData = {
         agent_id: agent.id,
-        status: 'error',
+        status: 'error' as const,
         response_data: null,
         error_message: error instanceof Error ? error.message : 'Unknown error',
         response_time_ms: Date.now() - Date.now()
@@ -340,7 +318,7 @@ const UniversalAPIAgent: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | null) => {
     switch (status) {
       case 'active': return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'inactive': return <AlertCircle className="h-4 w-4 text-gray-500" />;
@@ -349,7 +327,7 @@ const UniversalAPIAgent: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-gray-100 text-gray-800';
@@ -508,7 +486,7 @@ const UniversalAPIAgent: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {getStatusIcon(agent.status)}
                       <Badge className={getStatusColor(agent.status)}>
-                        {agent.status}
+                        {agent.status || 'unknown'}
                       </Badge>
                     </div>
                     <div className="flex gap-1">
@@ -609,7 +587,7 @@ const UniversalAPIAgent: React.FC = () => {
                           <div>
                             <p className="font-medium">{agent?.name || 'Unknown Agent'}</p>
                             <p className="text-sm text-gray-600">
-                              {new Date(execution.executed_at).toLocaleString()}
+                              {execution.executed_at ? new Date(execution.executed_at).toLocaleString() : 'Unknown time'}
                             </p>
                           </div>
                         </div>
@@ -621,7 +599,7 @@ const UniversalAPIAgent: React.FC = () => {
                             {execution.status}
                           </Badge>
                           <span className="text-sm text-gray-500">
-                            {execution.response_time_ms}ms
+                            {execution.response_time_ms || 0}ms
                           </span>
                           {execution.error_message && (
                             <span className="text-sm text-red-600 max-w-xs truncate">
