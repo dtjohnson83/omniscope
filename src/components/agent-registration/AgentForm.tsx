@@ -10,19 +10,24 @@ import { FormData } from './types';
 
 interface AgentFormProps {
   formData: FormData;
-  onInputChange: (field: string, value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onInputChange: (field: keyof FormData, value: string) => void;
+  onSubmit: (data: FormData) => void;
   onGenerateApiKey: () => void;
 }
 
 export function AgentForm({ formData, onInputChange, onSubmit, onGenerateApiKey }: AgentFormProps) {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>+ Register New Agent</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Basic Information</h3>

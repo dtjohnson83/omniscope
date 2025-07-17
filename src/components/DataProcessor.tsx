@@ -82,12 +82,12 @@ const DataProcessor: React.FC = () => {
       const processedResult = processor.processResponse(dataItem.raw_response, []);
       const semanticData = await semanticProcessor.extractSemanticData(processedResult);
       
-      // Update in database
+      // Update in database - cast semantic data to Json type
       const { error } = await supabase
         .from('agent_data')
         .update({
           processed_data: processedResult,
-          semantic_metadata: semanticData
+          semantic_metadata: semanticData as any
         })
         .eq('id', dataId);
 
