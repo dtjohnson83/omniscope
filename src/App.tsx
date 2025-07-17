@@ -1,6 +1,7 @@
+
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { supabase } from './lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
 import Navigation from './components/Navigation';

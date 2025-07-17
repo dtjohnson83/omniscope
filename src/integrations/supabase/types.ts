@@ -24,6 +24,7 @@ export type Database = {
           raw_response: Json | null
           response_size_bytes: number | null
           response_time_ms: number | null
+          semantic_metadata: Json | null
           status: string | null
           user_id: string | null
         }
@@ -36,6 +37,7 @@ export type Database = {
           raw_response?: Json | null
           response_size_bytes?: number | null
           response_time_ms?: number | null
+          semantic_metadata?: Json | null
           status?: string | null
           user_id?: string | null
         }
@@ -48,6 +50,7 @@ export type Database = {
           raw_response?: Json | null
           response_size_bytes?: number | null
           response_time_ms?: number | null
+          semantic_metadata?: Json | null
           status?: string | null
           user_id?: string | null
         }
@@ -56,7 +59,7 @@ export type Database = {
             foreignKeyName: "agent_data_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
-            referencedRelation: "agents"
+            referencedRelation: "api_agents"
             referencedColumns: ["id"]
           },
         ]
@@ -240,12 +243,128 @@ export type Database = {
           },
         ]
       }
+      data_correlations: {
+        Row: {
+          correlation_data: Json | null
+          correlation_strength: number | null
+          correlation_type: string | null
+          discovered_at: string | null
+          id: string
+          source_agent_id: string | null
+          target_agent_id: string | null
+        }
+        Insert: {
+          correlation_data?: Json | null
+          correlation_strength?: number | null
+          correlation_type?: string | null
+          discovered_at?: string | null
+          id?: string
+          source_agent_id?: string | null
+          target_agent_id?: string | null
+        }
+        Update: {
+          correlation_data?: Json | null
+          correlation_strength?: number | null
+          correlation_type?: string | null
+          discovered_at?: string | null
+          id?: string
+          source_agent_id?: string | null
+          target_agent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_correlations_source_agent_id_fkey"
+            columns: ["source_agent_id"]
+            isOneToOne: false
+            referencedRelation: "api_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_correlations_target_agent_id_fkey"
+            columns: ["target_agent_id"]
+            isOneToOne: false
+            referencedRelation: "api_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semantic_entities: {
+        Row: {
+          agent_data_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          entity_type: string
+          entity_value: string
+          field_source: string | null
+          id: string
+        }
+        Insert: {
+          agent_data_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          entity_type: string
+          entity_value: string
+          field_source?: string | null
+          id?: string
+        }
+        Update: {
+          agent_data_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          entity_type?: string
+          entity_value?: string
+          field_source?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semantic_entities_agent_data_id_fkey"
+            columns: ["agent_data_id"]
+            isOneToOne: false
+            referencedRelation: "agent_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semantic_insights: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          insight_data: Json | null
+          insight_description: string | null
+          insight_type: string
+          involved_agents: string[] | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          insight_data?: Json | null
+          insight_description?: string | null
+          insight_type: string
+          involved_agents?: string[] | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          insight_data?: Json | null
+          insight_description?: string | null
+          insight_type?: string
+          involved_agents?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_semantic_metadata: {
+        Args: { data_id: string; metadata: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

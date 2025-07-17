@@ -1,5 +1,5 @@
 
-import { supabase } from '../supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export class AgentStatsService {
   async updateAgentStats(agentId: string, success: boolean, responseTime: number): Promise<void> {

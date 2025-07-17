@@ -1,7 +1,29 @@
 
 import { useState } from 'react';
-import { supabase, type Agent } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { FormData } from '@/components/agent-registration/types';
+
+// Updated Agent interface to match database schema
+export interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  data_types: string[];
+  webhook_url: string;
+  api_key: string;
+  status: 'active' | 'inactive' | 'testing';
+  auth_method: 'api_key' | 'bearer_token' | 'basic_auth' | 'oauth' | 'custom';
+  payload_format: 'json' | 'xml' | 'form_data' | 'custom';
+  communication_method: 'webhook' | 'polling' | 'websocket' | 'custom';
+  custom_headers?: Record<string, string>;
+  custom_config?: Record<string, any>;
+  tags: string[];
+  version: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export function useAgentOperations() {
   const [agents, setAgents] = useState<Agent[]>([]);

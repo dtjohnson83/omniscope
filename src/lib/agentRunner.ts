@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { AgentExecutionService } from './agent/executionService';
 import { AgentSchedulerService } from './agent/schedulerService';
 import { AgentStatsService } from './agent/statsService';
