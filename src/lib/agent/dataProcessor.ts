@@ -36,6 +36,12 @@ export function processAgentResponse(rawResponse: any, agent: any): ProcessedRes
   }
 }
 
+export class AgentDataProcessor {
+  processResponse(rawResponse: any, dataTypes: string[]): any {
+    return processAgentResponse(rawResponse, { name: 'Unknown', data_types: dataTypes });
+  }
+}
+
 function extractNumericFields(obj: any, prefix = ''): Record<string, number> {
   const numeric: Record<string, number> = {};
   

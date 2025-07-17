@@ -25,6 +25,11 @@ export interface CrossAgentCorrelation {
 
 export class SemanticProcessor {
   
+  // New method to extract semantic data
+  async extractSemanticData(processedData: any): Promise<SemanticMetadata> {
+    return SemanticProcessor.processData(processedData, 'unknown');
+  }
+  
   // Extract entities from data using simple pattern matching
   static extractEntities(data: any): Entity[] {
     const entities: Entity[] = [];

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,10 +9,26 @@ import { AgentList } from './agent-registration/AgentList';
 import { AgentOverview } from './agent-registration/AgentOverview';
 import { useAgentOperations } from '@/hooks/useAgentOperations';
 import { supabase } from '@/integrations/supabase/client';
+import { FormData } from './agent-registration/types';
 
 const AgentRegistrationSystem = () => {
   const [showForm, setShowForm] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    description: '',
+    category: '',
+    dataTypes: '',
+    webhookUrl: '',
+    apiKey: '',
+    authMethod: 'api_key',
+    payloadFormat: 'json',
+    communicationMethod: 'webhook',
+    customHeaders: '',
+    customConfig: '',
+    tags: '',
+    version: '1.0.0'
+  });
   const { toast } = useToast();
   const {
     agents,
@@ -42,7 +59,16 @@ const AgentRegistrationSystem = () => {
     }
   };
 
-  const handleFormSubmit = async (formData: any) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const generateApiKey = () => {
+    const key = 'ak_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    setFormData(prev => ({ ...prev, apiKey: key }));
+  };
+
+  const handleFormSubmit = async (data: FormData) => {
     if (!user) {
       toast({
         title: 'Error',
@@ -53,8 +79,23 @@ const AgentRegistrationSystem = () => {
     }
 
     try {
-      await createAgent(formData, user.id);
+      await createAgent(data, user.id);
       setShowForm(false);
+      setFormData({
+        name: '',
+        description: '',
+        category: '',
+        dataTypes: '',
+        webhookUrl: '',
+        apiKey: '',
+        authMethod: 'api_key',
+        payloadFormat: 'json',
+        communicationMethod: 'webhook',
+        customHeaders: '',
+        customConfig: '',
+        tags: '',
+        version: '1.0.0'
+      });
       toast({
         title: 'Success',
         description: 'Agent registered successfully!'
@@ -172,7 +213,12 @@ const AgentRegistrationSystem = () => {
                   Cancel
                 </Button>
               </div>
-              <AgentForm onSubmit={handleFormSubmit} />
+              <AgentForm 
+                formData={formData}
+                onInputChange={handleInputChange}
+                onGenerateApiKey={generateApiKey}
+                onSubmit={handleFormSubmit}
+              />
             </div>
           </div>
         </div>
