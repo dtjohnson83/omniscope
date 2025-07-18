@@ -1,3 +1,4 @@
+// src/components/Navigation.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -13,13 +14,18 @@ const Navigation = () => {
     },
     {
       to: '/data-processor',
-      label: '📊 Data Processor',
-      icon: '📊'
+      label: '🧠 AI Data Processor',
+      icon: '🧠'
     },
     {
       to: '/api-agents',
       label: '🤖 Agents',
       icon: '🤖'
+    },
+    {
+      to: '/ai-settings',
+      label: '⚙️ AI Settings',
+      icon: '⚙️'
     }
   ];
 
@@ -60,7 +66,7 @@ const Navigation = () => {
         })}
       </div>
 
-      {/* Status Indicator (Optional) */}
+      {/* Status Indicator */}
       <div className="ml-4 flex items-center space-x-2">
         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
         <span className="text-xs text-gray-500 hidden md:block">Platform Online</span>
