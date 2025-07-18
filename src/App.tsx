@@ -6,9 +6,8 @@ import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
 import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
-import DataProcessor from './components/DataProcessor';
+import DataProcessor from './components/DataProcessor';  // Using existing component
 import UniversalAPIAgent from './components/UniversalAPIAgent';
-import { AISettings } from './components/AISettings';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -98,7 +97,6 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
             <Route path="/api-agents" element={<UniversalAPIAgent />} />
-            <Route path="/ai-settings" element={<AISettings />} />
             <Route path="*" element={
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">404 - Page Not Found</h2>
