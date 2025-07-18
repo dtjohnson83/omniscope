@@ -10,6 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AgentDataProcessor } from '@/lib/agent/dataProcessor';
 import { SemanticProcessor } from '@/lib/semanticProcessor';
+import { SemanticEntitiesView } from './data-processing/SemanticEntitiesView';
+import { CorrelationAnalyzer } from './data-processing/CorrelationAnalyzer';
+import { InsightsDashboard } from './data-processing/InsightsDashboard';
 
 interface ProcessedData {
   id: string;
@@ -204,9 +207,12 @@ const DataProcessor: React.FC = () => {
       </div>
 
       <Tabs defaultValue="data" className="space-y-6">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="data">Processed Data</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="entities">Semantic Entities</TabsTrigger>
+          <TabsTrigger value="correlations">Correlations</TabsTrigger>
+          <TabsTrigger value="insights">Insights</TabsTrigger>
         </TabsList>
 
         <TabsContent value="data" className="space-y-4">
@@ -302,6 +308,18 @@ const DataProcessor: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="entities">
+          <SemanticEntitiesView />
+        </TabsContent>
+
+        <TabsContent value="correlations">
+          <CorrelationAnalyzer />
+        </TabsContent>
+
+        <TabsContent value="insights">
+          <InsightsDashboard />
         </TabsContent>
       </Tabs>
 
