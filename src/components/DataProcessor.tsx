@@ -1,3 +1,4 @@
+// src/components/EnhancedDataProcessor.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,17 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, CheckCircle, Clock, Database, TrendingUp, Activity, Upload, Mic, MicOff, Play, Volume2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, CheckCircle, Clock, Database, TrendingUp, Activity, Upload, Mic, MicOff, Play, Volume2, Settings, Sparkles, Brain, Download, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { AgentDataProcessor } from '@/lib/agent/dataProcessor';
-import { SemanticProcessor } from '@/lib/semanticProcessor';
-
-// Import your existing semantic components
-import { SemanticEntitiesView } from './data-processing/SemanticEntitiesView';
-import { CorrelationAnalyzer } from './data-processing/CorrelationAnalyzer';
-import { InsightsDashboard } from './data-processing/InsightsDashboard';
+import { aiService, type AIAnalysisRequest, type AIAnalysisResponse } from '@/lib/aiService';
+import { AISettings } from './AISettings';
 
 interface ProcessedData {
   id: string;
@@ -28,8 +25,8 @@ interface ProcessedData {
   semantic_metadata?: any;
 }
 
-const UnifiedDataProcessor: React.FC = () => {
-  // Agent monitoring state
+const EnhancedDataProcessor: React.FC = () => {
+  // Existing state
   const [agentData, setAgentData] = useState<ProcessedData[]>([]);
   const [selectedData, setSelectedData] = useState<ProcessedData | null>(null);
   const [processingStats, setProcessingStats] = useState({
@@ -39,22 +36,53 @@ const UnifiedDataProcessor: React.FC = () => {
     avgResponseTime: 0
   });
 
-  // Interactive JSON processing state
+  // Enhanced AI state
   const [jsonData, setJsonData] = useState(null);
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [aiAnalysisResults, setAiAnalysisResults] = useState<AIAnalysisResponse | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [audioResponse, setAudioResponse] = useState(null);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [showAISettings, setShowAISettings] = useState(false);
+  const [analysisType, setAnalysisType] = useState<'summary' | 'insights' | 'decisions' | 'correlation' | 'prediction'>('insights');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const { toast } = useToast();
 
   useEffect(() => {
+    fetchUser();
     fetchProcessedData();
     const interval = setInterval(fetchProcessedData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      initializeAI();
+    }
+  }, [user]);
+
+  const fetchUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+    }
+  };
+
+  const initializeAI = async () => {
+    if (user) {
+      try {
+        await aiService.initialize(user.id);
+      } catch (error) {
+        console.error('Error initializing AI service:', error);
+      }
+    }
+  };
 
   const fetchProcessedData = async () => {
     try {
@@ -84,7 +112,7 @@ const UnifiedDataProcessor: React.FC = () => {
     }
   };
 
-  // Voice Recognition
+  // Voice Recognition (existing)
   const startVoiceRecognition = useCallback(() => {
     if (!('webkitSpeechRecognition' in window)) {
       setError('Voice recognition not supported in this browser');
@@ -112,7 +140,7 @@ const UnifiedDataProcessor: React.FC = () => {
     recognition.start();
   }, []);
 
-  // Text to Speech
+  // Text to Speech (existing)
   const speakResponse = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -123,7 +151,7 @@ const UnifiedDataProcessor: React.FC = () => {
     }
   }, []);
 
-  // File Upload Handler
+  // File Upload Handler (existing)
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -141,33 +169,100 @@ const UnifiedDataProcessor: React.FC = () => {
     reader.readAsText(file);
   }, []);
 
-  // Natural Language Processing
+  // Enhanced Natural Language Processing with AI
   const processNaturalLanguageQuery = useCallback(async () => {
     if (!jsonData || !naturalLanguageQuery.trim()) {
       setError('Please upload data and enter a query');
       return;
     }
 
+    if (!aiService.isConfigured()) {
+      setError('Please configure an AI provider in Settings to use advanced analysis');
+      setShowAISettings(true);
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
+    setAiAnalysisResults(null);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // First do the basic analysis
+      const basicAnalysis = analyzeDataWithQuery(jsonData, naturalLanguageQuery);
+      setAnalysisResults(basicAnalysis);
 
-      const analysis = analyzeDataWithQuery(jsonData, naturalLanguageQuery);
-      setAnalysisResults(analysis);
+      // Then enhance with AI
+      const aiRequest: AIAnalysisRequest = {
+        data: jsonData,
+        query: naturalLanguageQuery,
+        analysisType: analysisType,
+        context: `User is analyzing ${Array.isArray(jsonData) ? jsonData.length : 1} record(s)`
+      };
 
-      const responseText = generateTextualResponse(analysis);
+      const aiResults = await aiService.analyzeData(aiRequest);
+      setAiAnalysisResults(aiResults);
+
+      // Generate audio response from AI summary
+      const responseText = `Based on AI analysis: ${aiResults.summary}. Key insight: ${aiResults.insights[0] || 'Analysis completed'}`;
       speakResponse(responseText);
 
-    } catch (err) {
-      setError('Error processing query: ' + (err as Error).message);
+      toast({
+        title: 'AI Analysis Complete',
+        description: `Analysis by ${aiResults.provider} with ${(aiResults.confidence * 100).toFixed(1)}% confidence`,
+      });
+
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      
+      // Fallback to basic analysis
+      const basicAnalysis = analyzeDataWithQuery(jsonData, naturalLanguageQuery);
+      setAnalysisResults(basicAnalysis);
+      
+      setError(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Showing basic analysis instead.`);
+      
+      const fallbackResponse = generateTextualResponse(basicAnalysis);
+      speakResponse(fallbackResponse);
     } finally {
       setIsProcessing(false);
     }
-  }, [jsonData, naturalLanguageQuery, speakResponse]);
+  }, [jsonData, naturalLanguageQuery, analysisType, speakResponse]);
 
-  // Enhanced Data Analysis Logic
+  // Generate comprehensive report
+  const generateReport = async () => {
+    if (!aiAnalysisResults || !jsonData) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const report = await aiService.generateReport(jsonData, aiAnalysisResults);
+      
+      // Download report
+      const blob = new Blob([report], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `data-analysis-report-${new Date().toISOString().split('T')[0]}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Report Generated',
+        description: 'Analysis report downloaded successfully'
+      });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate report',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  // Basic data analysis (existing logic)
   const analyzeDataWithQuery = (data: any, query: string) => {
     const queryLower = query.toLowerCase();
     const dataArray = Array.isArray(data) ? data : [data];
@@ -242,7 +337,7 @@ const UnifiedDataProcessor: React.FC = () => {
       }).sort((a, b) => b.value - a.value);
     }
 
-    // Generate insights and decision outcomes
+    // Generate insights
     if (chartData.length > 0) {
       const total = chartData.reduce((sum, item) => sum + item.value, 0);
       const highest = chartData[0];
@@ -253,8 +348,7 @@ const UnifiedDataProcessor: React.FC = () => {
         `🏆 Highest ${groupByField}: ${highest.name} (${highest.value})`,
         `📉 Lowest ${groupByField}: ${lowest.name} (${lowest.value})`,
         `📈 Average per ${groupByField}: ${Math.round((total / chartData.length) * 100) / 100}`,
-        `💡 Performance gap: ${Math.round(((highest.value - lowest.value) / highest.value) * 100)}% difference`,
-        `🎯 Decision: Focus resources on top 3 performers for maximum impact`
+        `💡 Performance gap: ${Math.round(((highest.value - lowest.value) / highest.value) * 100)}% difference`
       ];
     }
 
@@ -265,43 +359,8 @@ const UnifiedDataProcessor: React.FC = () => {
       groupByField,
       numericField,
       insights,
-      summary: `Analysis of ${dataArray.length} records, grouped by ${groupByField}, measuring ${numericField}`,
-      decisionOutcomes: generateDecisionOutcomes(chartData, groupByField, numericField)
+      summary: `Analysis of ${dataArray.length} records, grouped by ${groupByField}, measuring ${numericField}`
     };
-  };
-
-  const generateDecisionOutcomes = (chartData: any[], groupBy: string, metric: string) => {
-    if (!chartData.length) return [];
-    
-    const top3 = chartData.slice(0, 3);
-    const bottom3 = chartData.slice(-3);
-    
-    return [
-      {
-        category: "High Priority Actions",
-        decisions: [
-          `Invest more in ${top3[0]?.name} - showing strongest ${metric} performance`,
-          `Scale successful strategies from ${top3[1]?.name} to other areas`,
-          `Investigate and replicate success factors from top performers`
-        ]
-      },
-      {
-        category: "Improvement Opportunities", 
-        decisions: [
-          `Develop improvement plan for ${bottom3[0]?.name}`,
-          `Consider resource reallocation from low to high performers`,
-          `Implement performance monitoring for bottom quartile`
-        ]
-      },
-      {
-        category: "Strategic Insights",
-        decisions: [
-          `${chartData.length} ${groupBy} categories show significant variation`,
-          `Top performer is ${Math.round((chartData[0]?.value / chartData[chartData.length-1]?.value) * 100) / 100}x better than lowest`,
-          `Consider standardizing processes across all ${groupBy} categories`
-        ]
-      }
-    ];
   };
 
   const generateTextualResponse = (analysis: any) => {
@@ -400,15 +459,54 @@ const UnifiedDataProcessor: React.FC = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">🧠 Universal Data Processor</h1>
-          <p className="text-gray-600 mt-2">Monitor agents, process data, and get AI-powered insights</p>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Brain className="h-8 w-8 text-blue-600" />
+            AI-Powered Data Processor
+          </h1>
+          <p className="text-gray-600 mt-2">Advanced analysis with AI insights and decision recommendations</p>
         </div>
-        <Button onClick={fetchProcessedData} disabled={isProcessing}>
-          {isProcessing ? 'Refreshing...' : 'Refresh Data'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAISettings(true)}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            AI Settings
+          </Button>
+          <Button onClick={fetchProcessedData} disabled={isProcessing}>
+            {isProcessing ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* AI Provider Status */}
+      {user && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              <span className="font-medium">AI Status:</span>
+              {aiService.isConfigured() ? (
+                <Badge className="bg-green-100 text-green-800">
+                  Connected ({aiService.getConfiguredProviders().join(', ')})
+                </Badge>
+              ) : (
+                <Badge variant="outline">
+                  No AI providers configured
+                </Badge>
+              )}
+            </div>
+            {!aiService.isConfigured() && (
+              <Button size="sm" onClick={() => setShowAISettings(true)}>
+                Setup AI
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats Cards (existing) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -464,13 +562,11 @@ const UnifiedDataProcessor: React.FC = () => {
       </div>
 
       <Tabs defaultValue="interactive" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="interactive">🤔 Ask Questions</TabsTrigger>
-          <TabsTrigger value="results">📊 Results</TabsTrigger>
-          <TabsTrigger value="decisions">💡 Decisions</TabsTrigger>
+          <TabsTrigger value="results">📊 Analysis Results</TabsTrigger>
+          <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
           <TabsTrigger value="agent-data">🤖 Agent Data</TabsTrigger>
-          <TabsTrigger value="entities">🔍 Entities</TabsTrigger>
-          <TabsTrigger value="correlations">🔗 Correlations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="interactive" className="space-y-4">
@@ -524,6 +620,24 @@ const UnifiedDataProcessor: React.FC = () => {
                 </div>
               )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Analysis Type</Label>
+                  <Select value={analysisType} onValueChange={(value: any) => setAnalysisType(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="summary">Summary</SelectItem>
+                      <SelectItem value="insights">Insights</SelectItem>
+                      <SelectItem value="decisions">Decisions</SelectItem>
+                      <SelectItem value="correlation">Correlation</SelectItem>
+                      <SelectItem value="prediction">Prediction</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-2">Ask About Your Data</label>
@@ -558,8 +672,8 @@ const UnifiedDataProcessor: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Analyze & Get Decisions
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Analyze with AI
                   </>
                 )}
               </Button>
@@ -610,48 +724,126 @@ const UnifiedDataProcessor: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="decisions" className="space-y-4">
-          {analysisResults?.decisionOutcomes ? (
+        <TabsContent value="ai-insights" className="space-y-4">
+          {aiAnalysisResults ? (
             <div className="space-y-4">
-              {analysisResults.decisionOutcomes.map((category: any, idx: number) => (
-                <Card key={idx}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{category.category}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {category.decisions.map((decision: string, index: number) => (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded">
-                          <Badge variant="secondary">{index + 1}</Badge>
-                          <span className="text-sm font-medium">{decision}</span>
-                        </div>
-                      ))}
+              {/* AI Summary */}
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-blue-600" />
+                      AI Analysis Summary
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {aiAnalysisResults.provider}
+                      </Badge>
+                      <Badge variant="outline">
+                        {(aiAnalysisResults.confidence * 100).toFixed(1)}% confidence
+                      </Badge>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-700">{aiAnalysisResults.summary}</p>
+                  <div className="mt-4 flex gap-2">
+                    <Button 
+                      onClick={generateReport}
+                      disabled={isGeneratingReport}
+                      className="flex items-center gap-2"
+                    >
+                      {isGeneratingReport ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Generate Report
+                    </Button>
+                    {audioResponse && (
+                      <Button
+                        variant="outline"
+                        onClick={() => speakResponse(aiAnalysisResults.summary)}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* Key Insights */}
               <Card>
                 <CardHeader>
-                  <CardTitle>📋 Key Insights</CardTitle>
+                  <CardTitle>🔍 Key Insights</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {analysisResults.insights.map((insight: string, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-2 border-l-4 border-blue-400 bg-blue-50">
-                        <span className="text-sm">{insight}</span>
+                    {aiAnalysisResults.insights.map((insight: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                        <Badge variant="secondary">{index + 1}</Badge>
+                        <span className="text-sm font-medium">{insight}</span>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Decisions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>💡 AI Recommendations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {aiAnalysisResults.decisions.map((decision: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                        <Badge className="bg-green-100 text-green-800">{index + 1}</Badge>
+                        <span className="text-sm font-medium">{decision}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Visualization Suggestions */}
+              {aiAnalysisResults.visualizationSuggestions && aiAnalysisResults.visualizationSuggestions.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📊 Visualization Suggestions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {aiAnalysisResults.visualizationSuggestions.map((suggestion: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">{suggestion.chartType}</Badge>
+                            <span className="text-sm font-medium">
+                              Fields: {suggestion.dataFields.join(', ')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">{suggestion.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : (
             <Card>
               <CardContent className="text-center py-12">
-                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Decisions Yet</h3>
-                <p className="text-gray-600">Complete an analysis to see AI-powered decision recommendations.</p>
+                <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No AI Analysis Yet</h3>
+                <p className="text-gray-600">Complete an analysis to see AI-powered insights and recommendations.</p>
+                {!aiService.isConfigured() && (
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => setShowAISettings(true)}
+                  >
+                    Configure AI Provider
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -696,15 +888,24 @@ const UnifiedDataProcessor: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="entities">
-          <SemanticEntitiesView />
-        </TabsContent>
-
-        <TabsContent value="correlations">
-          <CorrelationAnalyzer />
-        </TabsContent>
       </Tabs>
+
+      {/* AI Settings Modal */}
+      {showAISettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">AI Provider Settings</h2>
+                <Button variant="outline" onClick={() => setShowAISettings(false)}>
+                  Close
+                </Button>
+              </div>
+              <AISettings />
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded flex items-center gap-2">
@@ -716,4 +917,4 @@ const UnifiedDataProcessor: React.FC = () => {
   );
 };
 
-export default UnifiedDataProcessor;
+export default EnhancedDataProcessor;
