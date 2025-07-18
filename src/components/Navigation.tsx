@@ -9,23 +9,18 @@ const Navigation = () => {
   const navItems = [
     {
       to: '/',
-      label: '🏠 Dashboard',
+      label: 'Dashboard',
       icon: '🏠'
     },
     {
       to: '/data-processor',
-      label: '🧠 AI Data Processor',
-      icon: '🧠'
+      label: 'Data Processor', 
+      icon: '📊'
     },
     {
       to: '/api-agents',
-      label: '🤖 Agents',
+      label: 'Agents',
       icon: '🤖'
-    },
-    {
-      to: '/ai-settings',
-      label: '⚙️ AI Settings',
-      icon: '⚙️'
     }
   ];
 
