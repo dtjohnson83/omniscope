@@ -40,15 +40,15 @@ const AI_PROVIDERS: AIProvider[] = [
     models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
     status: 'disconnected'
   },
-  {
-    id: 'grok',
-    name: 'Grok (xAI)',
-    description: 'Grok models by xAI for real-time analysis',
-    apiKeyPlaceholder: 'xai-...',
-    endpoint: 'https://api.x.ai/v1',
-    models: ['grok-beta', 'grok-vision-beta'],
-    status: 'disconnected'
-  }
+{
+  id: 'grok',
+  name: 'Grok (xAI)',
+  description: 'Grok models by xAI for real-time analysis',
+  apiKeyPlaceholder: 'xai-...',
+  endpoint: 'https://api.x.ai/v1',
+  models: ['grok-4', 'grok-3', 'grok-3-mini', 'grok-2-image-1212'],
+  status: 'disconnected'
+}
 ];
 
 interface AIConfig {
