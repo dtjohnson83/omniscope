@@ -6,7 +6,7 @@ import { AuthForm } from './components/Auth';
 import { Button } from '@/components/ui/button';
 import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
-import EnhancedDataProcessor from './components/EnhancedDataProcessor';
+import DataProcessor from './components/DataProcessor';
 import UniversalAPIAgent from './components/UniversalAPIAgent';
 import { AISettings } from './components/AISettings';
 
@@ -96,7 +96,7 @@ function App() {
         <main className="max-w-6xl mx-auto p-4">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/data-processor" element={<EnhancedDataProcessor />} />
+            <Route path="/data-processor" element={<DataProcessor />} />
             <Route path="/api-agents" element={<UniversalAPIAgent />} />
             <Route path="/ai-settings" element={<AISettings />} />
             <Route path="*" element={
