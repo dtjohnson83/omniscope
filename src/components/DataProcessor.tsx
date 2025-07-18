@@ -1,4 +1,4 @@
-// src/components/DataProcessor.tsx - FIXED VERSION
+// src/components/DataProcessor.tsx - COMPLETE VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,15 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label'; // ✅ Added this import
+import { Label } from '@/components/ui/label'; // ✅ Fixed missing import
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CheckCircle, Clock, Database, TrendingUp, Activity, Upload, Mic, MicOff, Play, Volume2, Settings, Sparkles, Brain, Download, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-// Simplified version without AI service for now
-// import { aiService, type AIAnalysisRequest, type AIAnalysisResponse } from '@/lib/aiService';
+import { aiService, type AIAnalysisRequest, type AIAnalysisResponse } from '@/lib/aiService';
+import { AISettings } from './AISettings';
 
 interface ProcessedData {
   id: string;
@@ -27,8 +26,8 @@ interface ProcessedData {
   semantic_metadata?: any;
 }
 
-const DataProcessor: React.FC = () => {
-  // Basic state without AI for now
+const EnhancedDataProcessor: React.FC = () => {
+  // Existing state
   const [agentData, setAgentData] = useState<ProcessedData[]>([]);
   const [selectedData, setSelectedData] = useState<ProcessedData | null>(null);
   const [processingStats, setProcessingStats] = useState({
@@ -38,16 +37,19 @@ const DataProcessor: React.FC = () => {
     avgResponseTime: 0
   });
 
+  // Enhanced AI state
   const [jsonData, setJsonData] = useState(null);
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [aiAnalysisResults, setAiAnalysisResults] = useState<AIAnalysisResponse | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [audioResponse, setAudioResponse] = useState(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [showAISettings, setShowAISettings] = useState(false);
   const [analysisType, setAnalysisType] = useState<'summary' | 'insights' | 'decisions' | 'correlation' | 'prediction'>('insights');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const { toast } = useToast();
 
@@ -58,12 +60,28 @@ const DataProcessor: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      initializeAI();
+    }
+  }, [user]);
+
   const fetchUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     } catch (error) {
       console.error('Error fetching user:', error);
+    }
+  };
+
+  const initializeAI = async () => {
+    if (user) {
+      try {
+        await aiService.initialize(user.id);
+      } catch (error) {
+        console.error('Error initializing AI service:', error);
+      }
     }
   };
 
@@ -95,6 +113,45 @@ const DataProcessor: React.FC = () => {
     }
   };
 
+  // Voice Recognition
+  const startVoiceRecognition = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window)) {
+      setError('Voice recognition not supported in this browser');
+      return;
+    }
+
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setNaturalLanguageQuery(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      setError(`Voice recognition error: ${event.error}`);
+      setIsListening(false);
+    };
+
+    recognition.start();
+  }, []);
+
+  // Text to Speech
+  const speakResponse = useCallback((text: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.8;
+      utterance.pitch = 1;
+      speechSynthesis.speak(utterance);
+      setAudioResponse(text);
+    }
+  }, []);
+
   // File Upload Handler
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -106,18 +163,14 @@ const DataProcessor: React.FC = () => {
         const data = JSON.parse(e.target?.result as string);
         setJsonData(data);
         setError(null);
-        toast({
-          title: 'Success',
-          description: 'File uploaded successfully',
-        });
       } catch (err) {
         setError('Invalid JSON file. Please check the format.');
       }
     };
     reader.readAsText(file);
-  }, [toast]);
+  }, []);
 
-  // Simple analysis without AI for now
+  // Enhanced Natural Language Processing with AI
   const processNaturalLanguageQuery = useCallback(async () => {
     if (!jsonData || !naturalLanguageQuery.trim()) {
       setError('Please upload data and enter a query');
@@ -126,26 +179,93 @@ const DataProcessor: React.FC = () => {
 
     setIsProcessing(true);
     setError(null);
+    setAiAnalysisResults(null);
 
     try {
-      // Basic analysis
+      // First do the basic analysis
       const basicAnalysis = analyzeDataWithQuery(jsonData, naturalLanguageQuery);
       setAnalysisResults(basicAnalysis);
 
+      // Check if AI is configured
+      if (!aiService.isConfigured()) {
+        setError('AI providers not configured. Using basic analysis only.');
+        const fallbackResponse = generateTextualResponse(basicAnalysis);
+        speakResponse(fallbackResponse);
+        return;
+      }
+
+      // Then enhance with AI
+      const aiRequest: AIAnalysisRequest = {
+        data: jsonData,
+        query: naturalLanguageQuery,
+        analysisType: analysisType,
+        context: `User is analyzing ${Array.isArray(jsonData) ? jsonData.length : 1} record(s)`
+      };
+
+      const aiResults = await aiService.analyzeData(aiRequest);
+      setAiAnalysisResults(aiResults);
+
+      // Generate audio response from AI summary
+      const responseText = `Based on AI analysis: ${aiResults.summary}. Key insight: ${aiResults.insights[0] || 'Analysis completed'}`;
+      speakResponse(responseText);
+
       toast({
-        title: 'Analysis Complete',
-        description: 'Basic analysis completed successfully',
+        title: 'AI Analysis Complete',
+        description: `Analysis by ${aiResults.provider} with ${(aiResults.confidence * 100).toFixed(1)}% confidence`,
       });
 
     } catch (error) {
-      console.error('Error in analysis:', error);
-      setError(`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error in AI analysis:', error);
+      
+      // Fallback to basic analysis
+      const basicAnalysis = analyzeDataWithQuery(jsonData, naturalLanguageQuery);
+      setAnalysisResults(basicAnalysis);
+      
+      setError(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Showing basic analysis instead.`);
+      
+      const fallbackResponse = generateTextualResponse(basicAnalysis);
+      speakResponse(fallbackResponse);
     } finally {
       setIsProcessing(false);
     }
-  }, [jsonData, naturalLanguageQuery, toast]);
+  }, [jsonData, naturalLanguageQuery, analysisType, speakResponse]);
 
-  // Basic data analysis
+  // Generate comprehensive report
+  const generateReport = async () => {
+    if (!aiAnalysisResults || !jsonData) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const report = await aiService.generateReport(jsonData, aiAnalysisResults);
+      
+      // Download report
+      const blob = new Blob([report], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `data-analysis-report-${new Date().toISOString().split('T')[0]}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Report Generated',
+        description: 'Analysis report downloaded successfully'
+      });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate report',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  // Basic data analysis (existing logic)
   const analyzeDataWithQuery = (data: any, query: string) => {
     const queryLower = query.toLowerCase();
     const dataArray = Array.isArray(data) ? data : [data];
@@ -173,6 +293,17 @@ const DataProcessor: React.FC = () => {
         new Set(dataArray.map(item => item[field])).size < dataArray.length * 0.5
       );
 
+      // Smart field detection based on query
+      for (const field of fields) {
+        if (queryLower.includes(field.toLowerCase())) {
+          if (numericFields.includes(field)) {
+            numericField = field;
+          } else if (categoricalFields.includes(field)) {
+            groupByField = field;
+          }
+        }
+      }
+
       if (!numericField && numericFields.length > 0) numericField = numericFields[0];
       if (!groupByField && categoricalFields.length > 0) groupByField = categoricalFields[0];
     }
@@ -196,6 +327,12 @@ const DataProcessor: React.FC = () => {
           case 'sum':
             value = values.reduce((a: number, b: number) => a + b, 0);
             break;
+          case 'max':
+            value = Math.max(...values);
+            break;
+          case 'min':
+            value = Math.min(...values);
+            break;
           default:
             value = values.length;
         }
@@ -212,7 +349,9 @@ const DataProcessor: React.FC = () => {
       insights = [
         `📊 Total ${aggregationType} of ${numericField}: ${total}`,
         `🏆 Highest ${groupByField}: ${highest.name} (${highest.value})`,
-        `📉 Lowest ${groupByField}: ${lowest.name} (${lowest.value})`
+        `📉 Lowest ${groupByField}: ${lowest.name} (${lowest.value})`,
+        `📈 Average per ${groupByField}: ${Math.round((total / chartData.length) * 100) / 100}`,
+        `💡 Performance gap: ${Math.round(((highest.value - lowest.value) / highest.value) * 100)}% difference`
       ];
     }
 
@@ -223,8 +362,24 @@ const DataProcessor: React.FC = () => {
       groupByField,
       numericField,
       insights,
-      summary: `Analysis of ${dataArray.length} records`
+      summary: `Analysis of ${dataArray.length} records, grouped by ${groupByField}, measuring ${numericField}`
     };
+  };
+
+  const generateTextualResponse = (analysis: any) => {
+    if (!analysis.chartData.length) {
+      return "I couldn't find relevant data to analyze based on your query.";
+    }
+
+    const { chartData, aggregationType, groupByField, numericField } = analysis;
+    
+    let response = `Based on your data analysis, here are the key findings: `;
+    response += `The ${aggregationType} of ${numericField} across different ${groupByField} values shows that `;
+    response += `${chartData[0].name} has the highest value at ${chartData[0].value}, `;
+    response += `while ${chartData[chartData.length - 1].name} has the lowest at ${chartData[chartData.length - 1].value}. `;
+    response += `I recommend focusing on the top performers and investigating improvement opportunities for underperformers.`;
+
+    return response;
   };
 
   const renderChart = (analysis: any) => {
@@ -309,16 +464,50 @@ const DataProcessor: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <Brain className="h-8 w-8 text-blue-600" />
-            Data Processor
+            AI-Powered Data Processor
           </h1>
-          <p className="text-gray-600 mt-2">Analyze your JSON data with visualizations</p>
+          <p className="text-gray-600 mt-2">Advanced analysis with AI insights and decision recommendations</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAISettings(true)}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            AI Settings
+          </Button>
           <Button onClick={fetchProcessedData} disabled={isProcessing}>
             {isProcessing ? 'Refreshing...' : 'Refresh Data'}
           </Button>
         </div>
       </div>
+
+      {/* AI Provider Status */}
+      {user && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              <span className="font-medium">AI Status:</span>
+              {aiService.isConfigured() ? (
+                <Badge className="bg-green-100 text-green-800">
+                  Connected ({aiService.getConfiguredProviders().join(', ')})
+                </Badge>
+              ) : (
+                <Badge variant="outline">
+                  No AI providers configured
+                </Badge>
+              )}
+            </div>
+            {!aiService.isConfigured() && (
+              <Button size="sm" onClick={() => setShowAISettings(true)}>
+                Setup AI
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -376,9 +565,10 @@ const DataProcessor: React.FC = () => {
       </div>
 
       <Tabs defaultValue="interactive" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="interactive">🤔 Ask Questions</TabsTrigger>
           <TabsTrigger value="results">📊 Analysis Results</TabsTrigger>
+          <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
           <TabsTrigger value="agent-data">🤖 Agent Data</TabsTrigger>
         </TabsList>
 
@@ -455,11 +645,21 @@ const DataProcessor: React.FC = () => {
                 <div className="flex-1">
                   <Label className="block text-sm font-medium mb-2">Ask About Your Data</Label>
                   <Textarea
-                    placeholder="What trends do you see in the sales data over time? What patterns emerge?"
+                    placeholder="What trends do you see in the sales data over time? What decisions should I make?"
                     value={naturalLanguageQuery}
                     onChange={(e) => setNaturalLanguageQuery(e.target.value)}
                     className="min-h-20"
                   />
+                </div>
+                <div className="flex flex-col gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startVoiceRecognition}
+                    disabled={isListening}
+                  >
+                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
 
@@ -471,12 +671,12 @@ const DataProcessor: React.FC = () => {
                 {isProcessing ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Analyzing...
+                    Analyzing with AI...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Analyze Data
+                    Analyze with AI
                   </>
                 )}
               </Button>
@@ -484,7 +684,7 @@ const DataProcessor: React.FC = () => {
               {isProcessing && (
                 <div className="space-y-2">
                   <Progress value={66} className="w-full" />
-                  <p className="text-sm text-gray-600">Processing your query...</p>
+                  <p className="text-sm text-gray-600">Processing your query with AI...</p>
                 </div>
               )}
             </CardContent>
@@ -498,6 +698,15 @@ const DataProcessor: React.FC = () => {
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   Visual Analysis
+                  {audioResponse && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => speakResponse(audioResponse)}
+                    >
+                      <Volume2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -505,16 +714,6 @@ const DataProcessor: React.FC = () => {
                 <div className="mt-4 p-3 bg-blue-50 rounded">
                   <p className="text-sm text-blue-800">{analysisResults.summary}</p>
                 </div>
-                {analysisResults.insights && (
-                  <div className="mt-4 space-y-2">
-                    <h4 className="font-semibold">Key Insights:</h4>
-                    {analysisResults.insights.map((insight: string, index: number) => (
-                      <div key={index} className="text-sm bg-gray-50 p-2 rounded">
-                        {insight}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </CardContent>
             </Card>
           ) : (
@@ -523,6 +722,131 @@ const DataProcessor: React.FC = () => {
                 <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No Analysis Yet</h3>
                 <p className="text-gray-600">Upload data and ask a question to see visual results.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ai-insights" className="space-y-4">
+          {aiAnalysisResults ? (
+            <div className="space-y-4">
+              {/* AI Summary */}
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-blue-600" />
+                      AI Analysis Summary
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {aiAnalysisResults.provider}
+                      </Badge>
+                      <Badge variant="outline">
+                        {(aiAnalysisResults.confidence * 100).toFixed(1)}% confidence
+                      </Badge>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-700">{aiAnalysisResults.summary}</p>
+                  <div className="mt-4 flex gap-2">
+                    <Button 
+                      onClick={generateReport}
+                      disabled={isGeneratingReport}
+                      className="flex items-center gap-2"
+                    >
+                      {isGeneratingReport ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Generate Report
+                    </Button>
+                    {audioResponse && (
+                      <Button
+                        variant="outline"
+                        onClick={() => speakResponse(aiAnalysisResults.summary)}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Key Insights */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>🔍 Key Insights</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {aiAnalysisResults.insights.map((insight: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                        <Badge variant="secondary">{index + 1}</Badge>
+                        <span className="text-sm font-medium">{insight}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Decisions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>💡 AI Recommendations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {aiAnalysisResults.decisions.map((decision: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                        <Badge className="bg-green-100 text-green-800">{index + 1}</Badge>
+                        <span className="text-sm font-medium">{decision}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Visualization Suggestions */}
+              {aiAnalysisResults.visualizationSuggestions && aiAnalysisResults.visualizationSuggestions.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📊 Visualization Suggestions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {aiAnalysisResults.visualizationSuggestions.map((suggestion: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">{suggestion.chartType}</Badge>
+                            <span className="text-sm font-medium">
+                              Fields: {suggestion.dataFields.join(', ')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">{suggestion.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No AI Analysis Yet</h3>
+                <p className="text-gray-600">Complete an analysis to see AI-powered insights and recommendations.</p>
+                {!aiService.isConfigured() && (
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => setShowAISettings(true)}
+                  >
+                    Configure AI Provider
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -569,6 +893,23 @@ const DataProcessor: React.FC = () => {
         </TabsContent>
       </Tabs>
 
+      {/* AI Settings Modal */}
+      {showAISettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">AI Provider Settings</h2>
+                <Button variant="outline" onClick={() => setShowAISettings(false)}>
+                  Close
+                </Button>
+              </div>
+              <AISettings />
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-red-500" />
@@ -579,4 +920,4 @@ const DataProcessor: React.FC = () => {
   );
 };
 
-export default DataProcessor;
+export default EnhancedDataProcessor;
