@@ -8,6 +8,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
 import DataProcessor from './components/DataProcessor';  // Using existing component
 import UniversalAPIAgent from './components/UniversalAPIAgent';
+import { ConversationalAnalysis } from './pages/ConversationalAnalysis';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -97,6 +98,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/data-processor" element={<DataProcessor />} />
             <Route path="/api-agents" element={<UniversalAPIAgent />} />
+            <Route path="/chat" element={<ConversationalAnalysis />} />
             <Route path="*" element={
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">404 - Page Not Found</h2>

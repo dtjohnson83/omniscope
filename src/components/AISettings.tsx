@@ -103,7 +103,7 @@ export const AISettings: React.FC = () => {
       if (data) {
         data.forEach((setting) => {
           try {
-            configData[setting.key] = JSON.parse(setting.value);
+            configData[setting.key] = typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value;
           } catch (e) {
             console.warn('Failed to parse AI config:', setting.key);
           }

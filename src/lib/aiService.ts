@@ -66,7 +66,7 @@ class AIService {
       if (data) {
         data.forEach((setting) => {
           try {
-            const config = JSON.parse(setting.value);
+            const config = typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value;
             if (config.enabled) {
               this.configs.set(setting.key, config);
             }

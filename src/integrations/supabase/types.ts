@@ -356,6 +356,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          category: string
+          created_at: string | null
+          encrypted: boolean | null
+          id: string
+          key: string
+          updated_at: string | null
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          user_id: string
+          value: Json
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

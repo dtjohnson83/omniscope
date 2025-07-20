@@ -21,6 +21,11 @@ const Navigation = () => {
       to: '/api-agents',
       label: 'Agents',
       icon: '🤖'
+    },
+    {
+      to: '/chat',
+      label: 'AI Chat',
+      icon: '💬'
     }
   ];
 
